@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas de Economías Ilícitas · Ríos &amp; Ríos Asociados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --tinta:#0A1426; --panel:#0F1D38; --panel-2:#132443; --linea:#24395C; --linea-suave:#1A2C4C;
+  --oro:#C9A24B; --oro-suave:#8A7136; --marfil:#EDE7DA; --acero:#8FA3C0; --acero-2:#5F7394;
+  --f-origen:#C14B3A; --f-logistica:#5E97C4; --f-comercial:#6FAE8F; --f-financiera:#C9A24B; --f-predatoria:#9A6FB8;
+  --t-doc:#94A8C7; --t-org:#D06A50; --t-lugar:#5E97C4; --t-mercado:#6FAE8F;--t-caso:#B8874A;
+  --ok:#6FAE8F; --alerta:#C14B3A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--tinta);color:var(--marfil);font-family:'IBM Plex Sans',sans-serif;font-size:14px;overflow:hidden}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-track{background:var(--tinta)}
+::-webkit-scrollbar-thumb{background:var(--linea);border-radius:4px}
+
+/* ====== ESTRUCTURA ====== */
+#app{display:flex;flex-direction:column;height:100vh}
+header{display:flex;align-items:center;gap:18px;padding:10px 20px;border-bottom:1px solid var(--linea);background:linear-gradient(180deg,#0D1A32,#0A1426);flex-wrap:wrap}
+.marca{display:flex;flex-direction:column;line-height:1.15}
+.marca h1{font-family:'Spectral',serif;font-weight:600;font-size:19px;letter-spacing:.4px;color:var(--marfil)}
+.marca h1 em{font-style:normal;color:var(--oro)}
+.marca span{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:2.4px;color:var(--acero-2);text-transform:uppercase;margin-top:2px}
+.buscador{flex:1;min-width:200px;max-width:460px;position:relative}
+.buscador input{width:100%;background:var(--panel);border:1px solid var(--linea);color:var(--marfil);padding:8px 12px 8px 34px;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:13px}
+.buscador input:focus{outline:none;border-color:var(--oro-suave)}
+.buscador svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--acero-2)}
+.contadores{display:flex;gap:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--acero)}
+.contadores b{color:var(--oro);font-weight:600}
+.acciones{display:flex;gap:8px;margin-left:auto}
+.btn{background:var(--panel);border:1px solid var(--linea);color:var(--acero);padding:7px 13px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;cursor:pointer;transition:.15s}
+.btn:hover{border-color:var(--oro-suave);color:var(--oro)}
+.btn.primario{background:var(--oro);border-color:var(--oro);color:#1A1508;font-weight:600}
+.btn.primario:hover{background:#D9B45E;color:#1A1508}
+.btn.peligro:hover{border-color:var(--alerta);color:var(--alerta)}
+
+nav{display:flex;gap:2px;padding:0 20px;background:#0C1830;border-bottom:1px solid var(--linea)}
+nav button{background:none;border:none;border-bottom:2px solid transparent;color:var(--acero-2);padding:11px 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:.15s}
+nav button:hover{color:var(--acero)}
+nav button.activa{color:var(--oro);border-bottom-color:var(--oro)}
+
+main{flex:1;display:flex;overflow:hidden;position:relative}
+
+/* ====== PANEL DE FILTROS ====== */
+aside#filtros{width:230px;min-width:230px;background:var(--panel);border-right:1px solid var(--linea);padding:16px 14px;overflow-y:auto}
+.f-grupo{margin-bottom:20px}
+.f-grupo h3{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:2.2px;text-transform:uppercase;color:var(--acero-2);margin-bottom:9px;padding-bottom:5px;border-bottom:1px solid var(--linea-suave)}
+.f-item{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;user-select:none;font-size:12.5px;color:var(--acero)}
+.f-item:hover{color:var(--marfil)}
+.f-item input{accent-color:var(--oro);cursor:pointer}
+.chip-fase{display:inline-block;width:10px;height:10px;border-radius:2px;flex:none}
+.chip-tipo{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.f-nota{font-size:10.5px;color:var(--acero-2);line-height:1.5;margin-top:6px}
+
+/* ====== VISTAS ====== */
+#vistas{flex:1;position:relative;overflow:hidden}
+.vista{position:absolute;inset:0;display:none}
+.vista.activa{display:block}
+#mapa{width:100%;height:100%;background:#0A1426}
+.leaflet-container{background:#0A1426;font-family:'IBM Plex Sans',sans-serif}
+.leaflet-control-attribution{background:rgba(10,20,38,.75)!important;color:var(--acero-2)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:var(--acero)!important}
+.leaflet-control-zoom a{background:var(--panel)!important;color:var(--acero)!important;border-color:var(--linea)!important}
+.etq-nodo{background:none;border:none}
+.etq-nodo div{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.5px;color:var(--marfil);text-shadow:0 1px 3px #000,0 0 6px #000;white-space:nowrap;transform:translateY(-2px)}
+#grafo-svg{width:100%;height:100%;display:block;cursor:grab}
+#grafo-svg:active{cursor:grabbing}
+.g-nodo{cursor:pointer}
+.g-nodo text{font-family:'IBM Plex Mono',monospace;font-size:9.5px;fill:var(--marfil);paint-order:stroke;stroke:#0A1426;stroke-width:3px;pointer-events:none}
+.g-enlace{stroke-opacity:.55;fill:none}
+.g-enlace:hover{stroke-opacity:1}
+
+/* leyenda flotante */
+.leyenda{position:absolute;left:12px;bottom:12px;background:rgba(13,26,50,.92);border:1px solid var(--linea);border-radius:4px;padding:10px 13px;z-index:900;backdrop-filter:blur(4px)}
+.leyenda h4{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--acero-2);margin-bottom:7px}
+.leyenda .fila{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--acero);padding:2px 0}
+.leyenda .trazo{width:18px;height:0;border-top:2px solid;flex:none}
+
+/* ====== FICHA (drawer) ====== */
+#ficha{position:absolute;top:0;right:-420px;width:400px;max-width:92vw;height:100%;background:var(--panel);border-left:1px solid var(--linea);z-index:1200;transition:right .25s ease;display:flex;flex-direction:column;box-shadow:-12px 0 30px rgba(0,0,0,.45)}
+#ficha.abierta{right:0}
+.ficha-cab{padding:18px 20px 14px;border-bottom:1px solid var(--linea);position:relative}
+.ficha-cab .cerrar{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--acero-2);font-size:20px;cursor:pointer;line-height:1}
+.ficha-cab .cerrar:hover{color:var(--marfil)}
+.ficha-tipo{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:2.4px;text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.ficha-cab h2{font-family:'Spectral',serif;font-weight:600;font-size:21px;line-height:1.25;padding-right:22px}
+.ficha-cuerpo{flex:1;overflow-y:auto;padding:16px 20px 30px}
+.sello{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;padding:5px 12px;border:1.5px solid;border-radius:2px;position:relative;transform:rotate(-1.2deg);margin:6px 0 14px;font-weight:600}
+.sello::after{content:'';position:absolute;inset:2.5px;border:1px solid;border-color:inherit;opacity:.45;border-radius:1px}
+.sello.acreditado{color:var(--ok);border-color:var(--ok)}
+.sello.indiciario{color:var(--oro);border-color:var(--oro)}
+.sello.hipotesis{color:var(--f-predatoria);border-color:var(--f-predatoria)}
+.ficha-sec{margin-bottom:16px}
+.ficha-sec h5{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2.2px;text-transform:uppercase;color:var(--acero-2);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--linea-suave)}
+.ficha-sec p{font-size:13px;line-height:1.62;color:#D8D2C4}
+.fases-chips{display:flex;flex-wrap:wrap;gap:6px}
+.fase-chip{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:2px;border:1px solid;background:rgba(0,0,0,.2)}
+.meta-linea{display:flex;gap:8px;font-size:12px;color:var(--acero);padding:3px 0;font-family:'IBM Plex Mono',monospace}
+.meta-linea b{color:var(--acero-2);font-weight:400;min-width:74px;font-size:10.5px;text-transform:uppercase;letter-spacing:1px;padding-top:1px}
+.conexion{border:1px solid var(--linea-suave);border-left:3px solid;border-radius:3px;padding:8px 11px;margin-bottom:7px;cursor:pointer;transition:.15s;background:rgba(255,255,255,.015)}
+.conexion:hover{background:var(--panel-2);border-color:var(--linea)}
+.conexion .rel{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:var(--acero-2);margin-bottom:3px}
+.conexion .dest{font-size:13px;font-weight:500}
+.conexion .det{font-size:11.5px;color:var(--acero);line-height:1.5;margin-top:3px}
+.fuente-caja{font-size:11.5px;color:var(--acero);border-left:2px solid var(--oro-suave);padding:6px 10px;line-height:1.55;background:rgba(201,162,75,.05)}
+
+/* ====== REGISTRO ====== */
+#v-registro{overflow-y:auto;padding:24px 28px 60px}
+.reg-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;max-width:1200px;margin:0 auto}
+.tarjeta{background:var(--panel);border:1px solid var(--linea);border-radius:4px;padding:20px}
+.tarjeta h3{font-family:'Spectral',serif;font-weight:600;font-size:17px;margin-bottom:4px}
+.tarjeta .sub{font-size:11.5px;color:var(--acero-2);margin-bottom:16px;line-height:1.5}
+.campo{margin-bottom:12px}
+.campo label{display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:1.8px;text-transform:uppercase;color:var(--acero-2);margin-bottom:5px}
+.campo input,.campo select,.campo textarea{width:100%;background:var(--tinta);border:1px solid var(--linea);color:var(--marfil);padding:8px 10px;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:13px}
+.campo textarea{resize:vertical;min-height:64px}
+.campo input:focus,.campo select:focus,.campo textarea:focus{outline:none;border-color:var(--oro-suave)}
+.campo-fila{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.check-fases{display:flex;flex-wrap:wrap;gap:10px;padding:4px 0}
+.check-fases label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--acero);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;text-transform:none;letter-spacing:0}
+.tabla-reg{max-width:1200px;margin:24px auto 0}
+.tabla-reg h3{font-family:'Spectral',serif;font-weight:600;font-size:17px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--acero-2);text-align:left;padding:8px 10px;border-bottom:1px solid var(--linea)}
+td{padding:8px 10px;border-bottom:1px solid var(--linea-suave);color:#D8D2C4;vertical-align:top}
+tr:hover td{background:rgba(255,255,255,.02)}
+td .mini-sello{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:1.4px;text-transform:uppercase;padding:2px 6px;border:1px solid;border-radius:2px}
+td button{background:none;border:1px solid var(--linea);color:var(--acero-2);border-radius:2px;padding:3px 8px;cursor:pointer;font-size:10px;font-family:'IBM Plex Mono',monospace}
+td button:hover{border-color:var(--alerta);color:var(--alerta)}
+td .abrir{margin-right:5px}
+td .abrir:hover{border-color:var(--oro);color:var(--oro)}
+.aviso-flotante{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--oro-suave);color:var(--marfil);padding:10px 20px;border-radius:4px;font-size:13px;z-index:3000;opacity:0;transition:opacity .3s;pointer-events:none}
+
+/* ====== ANÁLISIS ====== */
+#v-analisis{overflow-y:auto;padding:24px 28px 60px}
+.an-cont{max-width:1150px;margin:0 auto}
+.an-cab{margin-bottom:20px;border-bottom:1px solid var(--linea);padding-bottom:14px}
+.an-cab h2{font-family:'Spectral',serif;font-weight:600;font-size:22px}
+.an-cab p{font-size:12px;color:var(--acero-2);margin-top:5px;line-height:1.55;max-width:820px}
+.an-metricas{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:24px}
+.an-metrica{background:var(--panel);border:1px solid var(--linea);border-radius:4px;padding:14px 16px}
+.an-metrica .valor{font-family:'Spectral',serif;font-size:27px;font-weight:600;color:var(--oro)}
+.an-metrica .etq{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--acero-2);margin-top:3px;line-height:1.5}
+.an-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
+.an-caja{background:var(--panel);border:1px solid var(--linea);border-radius:4px;padding:18px}
+.an-caja h3{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2.2px;text-transform:uppercase;color:var(--acero-2);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--linea-suave)}
+.barra-fila{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:12px}
+.barra-fila .nom{width:42%;color:#D8D2C4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.barra-fila .nom:hover{color:var(--oro)}
+.barra-fila .pista{flex:1;height:9px;background:var(--tinta);border-radius:2px;overflow:hidden}
+.barra-fila .barra{height:100%;border-radius:2px}
+.barra-fila .num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--acero);min-width:34px;text-align:right}
+.patron{background:var(--panel);border:1px solid var(--linea);border-left:3px solid var(--oro);border-radius:4px;padding:20px 22px;margin-bottom:16px}
+.patron .p-num{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2.4px;color:var(--oro);text-transform:uppercase;margin-bottom:6px}
+.patron h4{font-family:'Spectral',serif;font-weight:600;font-size:17px;margin-bottom:9px}
+.patron p{font-size:13px;line-height:1.68;color:#D8D2C4;margin-bottom:8px}
+.patron .evidencia{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--acero);background:rgba(201,162,75,.06);border-left:2px solid var(--oro-suave);padding:8px 12px;line-height:1.7;margin-top:6px}
+.patron .mini-sello{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:1.4px;text-transform:uppercase;padding:2px 7px;border:1px solid;border-radius:2px;margin-left:8px;vertical-align:2px}
+@media (max-width:860px){.an-grid{grid-template-columns:1fr}}
+.aviso-flotante.visible{opacity:1}
+
+@media (max-width:860px){
+  aside#filtros{position:absolute;left:-240px;top:0;height:100%;z-index:1100;transition:left .25s}
+  aside#filtros.abierto{left:0;box-shadow:10px 0 25px rgba(0,0,0,.5)}
+  #btn-filtros-mov{display:inline-block}
+  .reg-grid{grid-template-columns:1fr}
+  .contadores{display:none}
+}
+#btn-filtros-mov{display:none}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="marca">
+    <h1>Atlas de <em>Economías Ilícitas</em></h1>
+    <span>Ríos &amp; Ríos Asociados · Inteligencia analítica · Chile y red transnacional</span>
+  </div>
+  <div class="buscador">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input id="q" type="text" placeholder="Buscar organización, ruta, mercado, tipología…">
+  </div>
+  <div class="contadores"><span>Nodos <b id="c-nodos">0</b></span><span>Conexiones <b id="c-enlaces">0</b></span></div>
+  <div class="acciones">
+    <button class="btn" id="btn-filtros-mov">Filtros</button>
+    <button class="btn" id="btn-exportar">Exportar</button>
+    <button class="btn" id="btn-importar">Importar</button>
+    <input type="file" id="archivo-import" accept=".json" style="display:none">
+  </div>
+</header>
+
+<nav>
+  <button data-vista="mapa" class="activa">Mapa</button>
+  <button data-vista="grafo">Grafo de red</button>
+  <button data-vista="analisis">Análisis</button>
+  <button data-vista="registro">Registro y fuentes</button>
+</nav>
+
+<main>
+  <aside id="filtros">
+    <div class="f-grupo">
+      <h3>Fase delictual</h3>
+      <div id="f-fases"></div>
+      <p class="f-nota">Las fases colorean las conexiones. La fase económica concentra colocación, estratificación e integración de capitales.</p>
+    </div>
+    <div class="f-grupo">
+      <h3>Tipo de nodo</h3>
+      <div id="f-tipos"></div>
+    </div>
+    <div class="f-grupo">
+      <h3>Calificación epistémica</h3>
+      <div id="f-epi"></div>
+      <p class="f-nota">Acreditado: sentencias y cifras oficiales. Indiciario: estimaciones gremiales y entrevistas. Hipótesis: inferencias que requieren corroboración.</p>
+    </div>
+  </aside>
+
+  <div id="vistas">
+    <section class="vista activa" id="v-mapa"><div id="mapa"></div>
+      <div class="leyenda" id="leyenda-mapa">
+        <h4>Conexiones por fase</h4>
+      </div>
+    </section>
+    <section class="vista" id="v-grafo">
+      <svg id="grafo-svg"></svg>
+      <div class="leyenda">
+        <h4>Nodos por tipo</h4>
+        <div class="fila"><span class="chip-tipo" style="background:var(--t-org)"></span>Organización criminal</div>
+        <div class="fila"><span class="chip-tipo" style="background:var(--t-lugar)"></span>Lugar / nodo logístico</div>
+        <div class="fila"><span class="chip-tipo" style="background:var(--t-mercado)"></span>Mercado ilícito</div>
+        <div class="fila"><span class="chip-tipo" style="background:var(--t-doc)"></span>Fuente documental</div>
+        <div class="fila"><span class="chip-tipo" style="background:var(--t-caso)"></span>Caso jurisprudencial (sentencia firme)</div>
+      </div>
+    </section>
+    <section class="vista" id="v-analisis">
+      <div class="an-cont">
+        <div class="an-cab">
+          <h2>Mesa de análisis de inteligencia criminal</h2>
+          <p>Las métricas se computan en tiempo real sobre el grafo vigente —incluidos los antecedentes que usted incorpore— y respetan los filtros activos. Los patrones estructurales conservan su calificación epistémica: toda conclusión se sostiene en antecedentes concretos, distinguiendo lo acreditado de lo indiciario y de la hipótesis que requiere corroboración.</p>
+        </div>
+        <div class="an-metricas" id="an-metricas"></div>
+        <div class="an-grid">
+          <div class="an-caja"><h3>Centralidad de red · nodos articuladores</h3><div id="an-centralidad"></div></div>
+          <div class="an-caja"><h3>Corredores logísticos multi-mercado</h3><div id="an-corredores"></div></div>
+        </div>
+        <div class="an-grid">
+          <div class="an-caja"><h3>Asimetría territorial · condenas por lavado 2024 (Fiscalía)</h3><div id="an-territorial"></div></div>
+          <div class="an-caja">
+            <h3>Composición del grafo</h3>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.6px;color:var(--acero-2);margin-bottom:6px">POR FASE DELICTUAL</div>
+            <div id="an-fases"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.6px;color:var(--acero-2);margin:14px 0 6px">POR CALIFICACIÓN EPISTÉMICA</div>
+            <div id="an-epi"></div>
+          </div>
+        </div>
+        <div id="an-patrones"></div>
+      </div>
+    </section>
+    <section class="vista" id="v-registro">
+      <div class="reg-grid">
+        <div class="tarjeta">
+          <h3>Ingresar antecedente</h3>
+          <p class="sub">Estudios, informes, regulación, noticias, organizaciones, lugares o mercados. Los registros se conservan entre sesiones en este dispositivo.</p>
+          <div class="campo"><label>Nombre</label><input id="n-nombre" placeholder="Ej.: Informe UAF de tipologías 2025"></div>
+          <div class="campo-fila">
+            <div class="campo"><label>Tipo</label><select id="n-tipo">
+              <option value="documento">Fuente documental</option>
+              <option value="organizacion">Organización criminal</option>
+              <option value="lugar">Lugar / nodo logístico</option>
+              <option value="mercado">Mercado ilícito</option>
+            </select></div>
+            <div class="campo"><label>Calificación</label><select id="n-epi">
+              <option value="acreditado">Acreditado</option>
+              <option value="indiciario" selected>Indiciario</option>
+              <option value="hipotesis">Hipótesis</option>
+            </select></div>
+          </div>
+          <div class="campo"><label>Fases asociadas</label><div class="check-fases" id="n-fases"></div></div>
+          <div class="campo-fila">
+            <div class="campo"><label>Latitud (opcional)</label><input id="n-lat" type="number" step="any" placeholder="-20.2133"></div>
+            <div class="campo"><label>Longitud (opcional)</label><input id="n-lon" type="number" step="any" placeholder="-70.1503"></div>
+          </div>
+          <div class="campo"><label>Región / jurisdicción</label><input id="n-region" placeholder="Ej.: Tarapacá"></div>
+          <div class="campo"><label>Descripción y hallazgos</label><textarea id="n-desc" placeholder="Síntesis del antecedente, cifras, modus operandi…"></textarea></div>
+          <div class="campo"><label>Fuente (cita verificable)</label><input id="n-fuente" placeholder="Ej.: Fiscalía Nacional, Informe CO 2025, p. 96"></div>
+          <button class="btn primario" id="btn-agregar-nodo">Guardar antecedente</button>
+        </div>
+        <div class="tarjeta">
+          <h3>Conectar antecedentes</h3>
+          <p class="sub">Cada conexión declara la fase de la cadena delictual en que opera y su calificación epistémica, evitando sobredimensionar lo que la evidencia sostiene.</p>
+          <div class="campo"><label>Nodo de origen</label><select id="e-a"></select></div>
+          <div class="campo"><label>Nodo de destino</label><select id="e-b"></select></div>
+          <div class="campo-fila">
+            <div class="campo"><label>Fase de la conexión</label><select id="e-fase"></select></div>
+            <div class="campo"><label>Calificación</label><select id="e-epi">
+              <option value="acreditado">Acreditado</option>
+              <option value="indiciario" selected>Indiciario</option>
+              <option value="hipotesis">Hipótesis</option>
+            </select></div>
+          </div>
+          <div class="campo"><label>Relación (verbo)</label><input id="e-rel" placeholder="Ej.: canaliza fondos hacia, abastece, exporta por"></div>
+          <div class="campo"><label>Detalle</label><textarea id="e-desc" placeholder="Mecanismo, montos, tipología…"></textarea></div>
+          <div class="campo"><label>Fuente</label><input id="e-fuente" placeholder="Cita del antecedente que respalda la conexión"></div>
+          <button class="btn primario" id="btn-agregar-enlace">Guardar conexión</button>
+        </div>
+      </div>
+      <div class="tabla-reg">
+        <h3>Repositorio de antecedentes <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--acero-2)" id="c-repo"></span></h3>
+        <table><thead><tr><th>Nombre</th><th>Tipo</th><th>Región</th><th>Calificación</th><th>Fuente</th><th></th></tr></thead>
+        <tbody id="tbody-nodos"></tbody></table>
+      </div>
+    </section>
+  </div>
+
+  <div id="ficha">
+    <div class="ficha-cab">
+      <button class="cerrar" id="ficha-cerrar">×</button>
+      <div class="ficha-tipo" id="ficha-tipo"></div>
+      <h2 id="ficha-nombre"></h2>
+    </div>
+    <div class="ficha-cuerpo" id="ficha-cuerpo"></div>
+  </div>
+</main>
+</div>
+<div class="aviso-flotante" id="aviso"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+/* ================= CONSTANTES ================= */
+const FASES = {
+  origen:       {n:'Origen del ilícito', c:'#C14B3A'},
+  logistica:    {n:'Logística y acopio', c:'#5E97C4'},
+  comercializacion:{n:'Comercialización', c:'#6FAE8F'},
+  financiera:   {n:'Fase económica / lavado', c:'#C9A24B'},
+  predatoria:   {n:'Delitos predatorios', c:'#9A6FB8'},
+  documenta:    {n:'Respaldo documental', c:'#5A6B85'}
+};
+const TIPOS = {
+  documento:{n:'Fuente documental', c:'#94A8C7'},
+  organizacion:{n:'Organización criminal', c:'#D06A50'},
+  lugar:{n:'Lugar / nodo logístico', c:'#5E97C4'},
+  mercado:{n:'Mercado ilícito', c:'#6FAE8F'},
+  caso:{n:'Caso jurisprudencial (sentencia firme)', c:'#B8874A'}
+};
+const EPI = {
+  acreditado:{n:'Hecho acreditado', c:'#6FAE8F'},
+  indiciario:{n:'Antecedente indiciario', c:'#C9A24B'},
+  hipotesis:{n:'Hipótesis por corroborar', c:'#9A6FB8'}
+};
+const F_CPC = 'CPC, «Por un Chile sin Economía Ilícita», julio 2026';
+const F_UCOD = 'Fiscalía Nacional (UCOD), «Informe Crimen Organizado en Chile 2025»';
+const F_UAF = 'UAF, «XI Informe de Tipologías y Señales de Alerta de Lavado de Activos en Chile» (sentencias 2020-2024)';
+
+/* ================= DATOS SEMILLA ================= */
+/* n(id,tipo,nombre,lat,lon,region,fases[],epi,fuente,desc) */
+function n(id,tipo,nombre,lat,lon,region,fases,epi,fuente,desc){return{id,tipo,nombre,lat,lon,region,fases,epi,fuente,desc,semilla:true}}
+function e(id,a,b,rel,fase,epi,fuente,desc){return{id,a,b,rel,fase,epi,fuente,desc,semilla:true}}
+
+const NODOS_SEMILLA=[
+// Fuentes
+n('doc-cpc','documento','Estudio CPC: Por un Chile sin Economía Ilícita (2026)',-33.437,-70.650,'Nacional',['documenta'],'indiciario',F_CPC,'Estudio gremial con ~70 expertos y 30 gremios. Valoriza los mercados ilícitos nacionales en al menos US$ 5.700 millones anuales (1,5% del PIB), con pérdida fiscal superior a US$ 1.500 millones y gasto privado en seguridad de US$ 2.700 millones (2022). Estructura el fenómeno en tres ejes: comercio ilícito y contrabando, finanzas ilícitas e ilícitos en materias primas, y describe el círculo vicioso origen → intermediación → comercialización y lavado. Sus cifras provienen de metodologías heterogéneas y deben tratarse como aproximación conservadora.'),
+n('doc-ucod','documento','Informe Crimen Organizado en Chile 2025 (Fiscalía – UCOD)',-33.425,-70.615,'Nacional',['documenta'],'acreditado',F_UCOD,'Segunda versión del informe de la Unidad Especializada en Crimen Organizado y Drogas, elaborado con Carabineros, PDI, Gendarmería, Directemar, SENDA, Subsecretaría del Interior y Aduanas. Caracteriza macrozonas, rutas de tráfico, mercados ilícitos, delitos predatorios, lavado de activos (capítulo inédito) y organizaciones transnacionales presentes en Chile durante 2024. El 16,5% de los homicidios de 2024 se vinculó a crimen organizado.'),
+// Organizaciones transnacionales (tabla UCOD 4.1)
+n('org-tda','organizacion','Tren de Aragua',10.246,-67.596,'Todas las regiones de Chile',['origen','logistica','comercializacion','financiera','predatoria'],'acreditado',F_UCOD+', pp. 95-96','Organización transnacional originaria de Aragua (Venezuela), expandida tras la tercera ola migratoria (2017-2018). Opera mediante células o franquicias: Los Gallegos, Tren del Coro, Hermanos Cartier, Los Piratas, Hijos de Dios y La Hermandad. Actividades: tráfico de drogas, tráfico de migrantes, trata de personas, extorsiones, secuestros, homicidios, lavado de activos, contrabando, tráfico de armas y robos. Presencia evidenciada en todas las regiones del país.'),
+n('org-gallegos','organizacion','Los Gallegos (célula TdA)',-18.478,-70.320,'Arica y Parinacota',['predatoria','financiera'],'acreditado',F_UCOD+' (condena Juzgado de Garantía de Arica, 2024)','Célula del Tren de Aragua. A inicios de 2024 el Juzgado de Garantía de Arica dictó la primera condena contra personas jurídicas por trata de personas con fines de explotación sexual conforme a la Ley N° 20.393, imponiendo disolución y cancelación de la personalidad jurídica de dos sociedades vinculadas a la organización.'),
+n('org-shottas','organizacion','Los Shottas',3.883,-77.031,'Tarapacá · Antofagasta · Atacama · RM',['origen','predatoria'],'acreditado',F_UCOD+', p. 96','Origen: Buenaventura, Valle del Cauca (Colombia). Actividades: tráfico de drogas, homicidios, tráfico de armas, extorsiones, secuestros, amenazas y robos.'),
+n('org-espartanos','organizacion','Los Espartanos',3.870,-76.990,'Tarapacá · Antofagasta · Atacama · RM',['origen','predatoria'],'acreditado',F_UCOD+', p. 96','Origen: Buenaventura, Valle del Cauca (Colombia). Rival histórico de Los Shottas. Actividades: tráfico de drogas, homicidios, extorsiones, secuestros, tráfico de armas, amenazas y robos.'),
+n('org-calenos','organizacion','Los Caleños',3.451,-76.531,'Arica · Iquique · Antofagasta',['origen','financiera'],'acreditado',F_UCOD+', p. 96','Origen: Cali (Colombia). Actividades: tráfico de drogas, tráfico de armas y lavado de activos en el norte grande.'),
+n('org-lobos','organizacion','Los Lobos',-2.190,-79.887,'Región Metropolitana',['origen'],'acreditado',F_UCOD+', p. 96','Origen: Ecuador. Actividades: tráfico de drogas y de armas.'),
+n('org-pulpos','organizacion','Los Pulpos',-8.111,-79.028,'Región Metropolitana',['predatoria'],'acreditado',F_UCOD+', p. 97','Origen: Trujillo (Perú). Especializados en extorsiones.'),
+n('org-mafianorte','organizacion','Mafia del Norte',-20.10,-69.30,'Tarapacá',['origen','predatoria'],'acreditado',F_UCOD+', p. 97','Organización con integrantes chilenos y venezolanos y fuertes vínculos con organizaciones bolivianas. Actividades: tráfico de drogas y de armas, secuestro con homicidio, amenazas y extorsiones.'),
+n('org-vilches','organizacion','Los Vilches',-20.35,-69.70,'Tarapacá',['origen','financiera'],'acreditado',F_UCOD+', p. 97','Organización de origen tarapaqueño dedicada al tráfico de drogas y al lavado de activos.'),
+n('org-fujian','organizacion','Bang de Fujian',26.074,119.296,'RM · O\u2019Higgins',['origen','financiera'],'acreditado',F_UCOD+', p. 97','Origen: Fujian (China). Actividades: tráfico de drogas y lavado de activos.'),
+n('org-trinitarios','organizacion','Trinitarios',18.486,-69.931,'Región Metropolitana',['origen','financiera'],'acreditado',F_UCOD+', p. 97','Origen: República Dominicana / EE.UU. (Nueva York). Actividades: tráfico de drogas y lavado de activos.'),
+n('org-orientales','organizacion','Los Orientales',8.60,-66.10,'RM · Los Lagos',['predatoria'],'acreditado',F_UCOD+', p. 97','Origen venezolano. Especializados en secuestros y extorsiones.'),
+n('org-melean','organizacion','Los Melean',10.654,-71.612,'Región Metropolitana',['predatoria'],'acreditado',F_UCOD+', p. 97','Origen: Zulia (Venezuela). Especializados en extorsiones.'),
+n('org-loyalty','organizacion','Los Loyalty',7.80,-64.50,'La Araucanía',['origen','predatoria'],'acreditado',F_UCOD+', p. 97','Origen venezolano. Actividades: tráfico de drogas, extorsiones y secuestros en la Macrozona Sur.'),
+n('org-confederacion','organizacion','Confederación',4.60,-74.30,'Magallanes',['origen','financiera'],'acreditado',F_UCOD+', p. 97','Origen colombiano. Tráfico de drogas, delitos de la ley de armas y lavado de activos en la Macrozona Austral.'),
+n('org-laempresa','organizacion','La Empresa',6.25,-75.56,'Valparaíso',['financiera','predatoria'],'acreditado',F_UCOD+', p. 97','Origen colombiano. Usura (crédito extorsivo tipo «gota a gota»), amenazas y extorsiones en la Región de Valparaíso.'),
+n('org-costenos','organizacion','Los Costeños',10.96,-74.80,'Arica y Parinacota',['origen'],'acreditado',F_UCOD+', p. 97','Origen colombiano. Tráfico de drogas en Arica.'),
+n('org-pcc','organizacion','Primeiro Comando da Capital (PCC)',-23.550,-46.633,'Brasil / Cono Sur',['origen','logistica'],'indiciario',F_UCOD+', p. 33','Organización brasileña. Se identifican en Chile organizaciones con vínculos con el PCC dedicadas al tráfico de cocaína desde Bolivia y Paraguay.'),
+n('org-cv','organizacion','Comando Vermelho',-22.906,-43.172,'Brasil / Cono Sur',['origen','logistica'],'indiciario',F_UCOD+', p. 33','Organización brasileña con vínculos detectados en redes de tráfico de cocaína desde Bolivia y Paraguay hacia el Cono Sur.'),
+n('org-sinaloa','organizacion','Cártel de Sinaloa',24.809,-107.394,'México / logística global',['logistica','financiera'],'indiciario',F_UCOD+', p. 33','Vínculos identificados con la logística de exportación de cocaína desde Chile hacia mercados de Europa y Oceanía.'),
+n('org-cjng','organizacion','Cártel Jalisco Nueva Generación',20.676,-103.347,'México / logística global',['logistica','financiera'],'indiciario',F_UCOD+', p. 33','Vínculos identificados con la logística de exportación de cocaína hacia Europa y Oceanía a través de puertos chilenos.'),
+// Lugares — pasos y nodos
+n('lg-chacalluta','lugar','Paso Chacalluta',-18.350,-70.293,'Arica y Parinacota',['origen'],'acreditado',F_UCOD+', p. 34','Complejo fronterizo Chile–Perú. Punto relevante de ingreso de cocaína, cannabis y ketamina líquida peruana, junto a múltiples pasos no habilitados aledaños en las comunas de Arica, General Lagos y Putre.'),
+n('lg-visviri','lugar','Paso Visviri',-17.595,-69.478,'Arica y Parinacota',['origen'],'acreditado',F_UCOD+', p. 34','Hito tripartito Chile–Perú–Bolivia. Ingreso de droga por rutas habilitadas y clandestinas del altiplano.'),
+n('lg-colchane','lugar','Paso Colchane',-19.278,-68.641,'Tarapacá',['origen'],'acreditado',F_UCOD+', pp. 34-35','Principal punto de acceso de la región: ingreso de marihuana prensada desde Bolivia y Paraguay, cocaína y ketamina, además de tráfico de personas. Utilizado por el Tren de Aragua y organizaciones menores. Rodeado de pasos irregulares.'),
+n('lg-huara','lugar','Pisiga Carpa / Huara',-19.996,-69.771,'Tarapacá',['origen'],'acreditado',F_UCOD+', p. 34','Rutas no habilitadas empleadas para el ingreso irregular de cocaína y otros mercados ilícitos, incluido el tráfico de personas.'),
+n('lg-ollague','lugar','Paso Ollagüe',-21.226,-68.253,'Antofagasta',['origen'],'acreditado',F_UCOD+', p. 34','Ingreso de cannabis y cocaína desde Bolivia, combinando rutas habilitadas y clandestinas.'),
+n('lg-hitocajon','lugar','Hito Cajón',-22.920,-67.780,'Antofagasta',['origen'],'acreditado',F_UCOD+', p. 34','Paso fronterizo con Bolivia próximo a San Pedro de Atacama; ruta de ingreso de drogas hacia Calama.'),
+n('lg-libertadores','lugar','Complejo Los Libertadores',-32.844,-70.089,'Valparaíso',['origen'],'acreditado',F_UCOD+', p. 35','Se han incautado cargas de ketamina provenientes de Paraguay, configurando una tercera ruta de ingreso de esta sustancia.'),
+n('lg-altohospicio','lugar','Alto Hospicio',-20.269,-70.093,'Tarapacá',['logistica'],'acreditado',F_UCOD+', p. 34','Núcleo de acopio y fraccionamiento de cocaína y cannabis tras su ingreso por Colchane, con redistribución inicial hacia otras regiones.'),
+n('lg-iquique','lugar','Iquique · ZOFRI',-20.213,-70.150,'Tarapacá',['logistica','origen','financiera'],'indiciario',F_UCOD+', p. 34; '+F_CPC,'Centro urbano y portuario: almacenamiento y redistribución de droga. La Zona Franca constituye un nodo sensible para el ingreso y tránsito de vehículos, componentes y mercancías que se comercializan sin completar internación ni tributos, con salidas irregulares y reingreso vía contrabando. Debilidades de control aduanero identificadas en el puerto.'),
+n('lg-calama','lugar','Calama',-22.456,-68.929,'Antofagasta',['logistica'],'acreditado',F_UCOD+', pp. 34-35','Punto de acopio y organización logística del traslado de cocaína hacia la zona central, principalmente la Región Metropolitana.'),
+n('lg-antofagasta','lugar','Antofagasta (puerto)',-23.652,-70.398,'Antofagasta',['logistica','origen'],'acreditado',F_UCOD+', pp. 34-35','Punto de acopio, redistribución y tráfico portuario de salida hacia mercados internacionales. Concentración del ingreso de cigarrillos de contrabando por pasos no habilitados de la región. Incautación histórica de 1.195 ampollas de fentanilo (junio 2024, Fiscalía Regional de Antofagasta).'),
+n('lg-santiago','lugar','Santiago / Región Metropolitana',-33.449,-70.669,'Metropolitana',['logistica','comercializacion','financiera','predatoria'],'acreditado',F_UCOD+', pp. 34, 76','Principal centro de acopio, consumo y redistribución de drogas hacia Coquimbo, Valparaíso, Concepción y Temuco. Nodo financiero y logístico: concentra 69 de las condenas por lavado de activos vinculado a crimen organizado (2024) y el 80% de los robos violentos de vehículos (portonazos y encerronas); el 44% de los detenidos por estos delitos son menores de edad.'),
+n('lg-valparaiso','lugar','Puerto de Valparaíso',-33.035,-71.629,'Valparaíso',['logistica'],'acreditado',F_UCOD+', p. 34','Puerto de salida de cocaína hacia Europa y Oceanía. Zona portuaria estratégica de la Macrozona Centro.'),
+n('lg-sanantonio','lugar','Puerto de San Antonio',-33.593,-71.607,'Valparaíso',['logistica'],'acreditado',F_UCOD+', p. 34; '+F_CPC,'Principal puerto del país y punto de exportación de cocaína hacia Europa y Oceanía. El estudio CPC identifica debilidades en los procesos de control y fiscalización aduanera que facilitan el ingreso y tránsito de mercancías ilícitas.'),
+n('lg-coquimbo','lugar','Valles de Elqui, Limarí y Choapa',-30.601,-71.199,'Coquimbo',['origen'],'acreditado',F_UCOD+', p. 34','Concentración de cultivos ilegales de cannabis. La región mezcla marihuana importada con producción local antes de redistribuirla hacia la RM.'),
+n('lg-petorca','lugar','Petorca (zonas rurales)',-32.251,-70.936,'Valparaíso',['origen'],'acreditado',F_UCOD+', p. 34','Cultivos ilegales de cannabis outdoor que abastecen la zona central.'),
+n('lg-maule','lugar','Región del Maule',-35.426,-71.655,'Maule',['origen','logistica'],'acreditado',F_UCOD+'; '+F_CPC,'Ensamblaje de «camiones hechizos»: ingreso de camiones desarmados en partes y piezas, ensamblados en territorio nacional y registrados con identidades de camiones robados o quemados en la Macrozona Sur, configurando legitimación de activos ilícitos.'),
+n('lg-araucania','lugar','Macrozona Sur (Araucanía–Biobío)',-38.739,-72.590,'La Araucanía',['origen','financiera'],'acreditado',F_UCOD+'; '+F_CPC,'Mercado ilícito de la madera: tala ilegal, usurpación, robo y documentación fraudulenta que permiten la «legalización» progresiva del producto en la cadena logística. La economía ilícita financia el conflicto territorial y éste facilita la operación de redes criminales.'),
+n('lg-loslagos','lugar','Región de Los Lagos',-41.469,-72.943,'Los Lagos',['origen','predatoria'],'acreditado',F_UCOD+', pp. 44, 57','Robo en centros de cultivo de salmón, desvío y subdeclaración de producción sin trazabilidad. Región donde se obtuvo la primera condena contra integrantes del Tren de Aragua por trata de personas.'),
+n('lg-magallanes','lugar','Magallanes (Macrozona Austral)',-53.163,-70.917,'Magallanes',['origen','logistica'],'acreditado',F_UCOD+', pp. 28-31','Vulnerabilidad geográfica: frontera extensa y permeable, con limitada dotación tecnológica y humana en controles portuarios y aduaneros. Operan organizaciones híbridas que conectan redes locales con actores colombianos, centradas en narcotráfico y contrabando.'),
+// Lugares internacionales
+n('lg-bolivia','lugar','Bolivia (producción y tránsito)',-16.500,-68.150,'Internacional',['origen'],'acreditado',F_UCOD+', pp. 33-35','Rol central en producción y tránsito de cocaína hacia Chile; origen de marihuana prensada y una de las tres rutas de ketamina. Principal proveedor de la cocaína que ingresa por Antofagasta.'),
+n('lg-peru','lugar','Perú (producción y tránsito)',-12.046,-77.043,'Internacional',['origen'],'acreditado',F_UCOD+', pp. 34-35','Productor y ruta de paso de cocaína; origen de la «ketamina líquida» adquirida por agrupaciones chilenas e ingresada por Arica.'),
+n('lg-paraguay','lugar','Paraguay (producción)',-25.282,-57.635,'Internacional',['origen'],'indiciario',F_UCOD+'; '+F_CPC+' (Kantar 2025)','Origen de la marihuana prensada y de más del 70% del cigarrillo ilícito que ingresa a Chile por pasos no habilitados de la Macrozona Norte. Tercera ruta de ketamina, con incautaciones en Los Libertadores.'),
+n('lg-colombia','lugar','Colombia (elaboración)',4.711,-74.072,'Internacional',['origen'],'acreditado',F_UCOD+', p. 34','Elaborador y exportador de cocaína (vía Bolivia y Perú) y origen de la marihuana tipo «cripy» de alta concentración de THC.'),
+n('lg-europa','lugar','Europa (Amberes / Róterdam)',51.260,4.402,'Internacional',['comercializacion'],'acreditado',F_UCOD+', p. 34','Mercado de destino de la cocaína exportada desde los puertos de San Antonio y Valparaíso.'),
+n('lg-oceania','lugar','Oceanía (Australia)',-33.868,151.209,'Internacional',['comercializacion'],'acreditado',F_UCOD+', p. 34','Mercado de destino de exportaciones de cocaína desde puertos chilenos, con márgenes de precio elevados.'),
+// Mercados
+n('mk-cocaina','mercado','Tráfico de cocaína',null,null,'Nacional / transnacional',['origen','logistica','comercializacion'],'acreditado',F_UCOD+', pp. 33-35','Principal mercado ilícito del país; el tráfico de drogas representa cerca de la mitad de los ingresos asociados al crimen organizado (2023-2024). Ingreso desde Bolivia y Perú por pasos habilitados y no habilitados del norte; acopio en Alto Hospicio, Iquique, Calama y Antofagasta; redistribución desde Santiago y exportación por San Antonio y Valparaíso.'),
+n('mk-cannabis','mercado','Mercado de la cannabis',null,null,'Nacional',['origen','logistica'],'acreditado',F_UCOD+', pp. 33-34','Principal droga incautada. Tres fuentes: prensada (Paraguay y Bolivia), «cripy» (Colombia y Bolivia) y producción nacional en Coquimbo, Valparaíso y RM (indoor y outdoor). Cambio estructural: Chile pasa de territorio de tránsito y consumo a espacio de producción.'),
+n('mk-ketamina','mercado','Ketamina y drogas sintéticas',null,null,'Nacional',['origen','logistica'],'acreditado',F_UCOD+', p. 35','Tres rutas de ingreso: Bolivia (Colchane), Perú (Arica, «ketamina líquida», transformada a formato sólido o «tusi») y Paraguay (Los Libertadores). Canal adicional: desvío desde fuentes legales (laboratorios, hospitales, clínicas veterinarias), de difícil fiscalización.'),
+n('mk-fentanilo','mercado','Fentanilo de origen farmacéutico',null,null,'Nacional',['origen'],'acreditado',F_UCOD+', pp. 35-36','Salvo un caso de 2022, las incautaciones corresponden exclusivamente a fentanilo farmacéutico desviado desde canales lícitos. Incautaciones históricas 2024: 1.195 ampollas (Antofagasta) y carga proveniente de Paraguay.'),
+n('mk-tabaco','mercado','Contrabando de cigarrillos',null,null,'Nacional',['origen','comercializacion'],'indiciario',F_CPC+' (BAT; Kantar 2025)','Cerca del 60% del mercado nacional es ilícito. Más del 70% se produce en Paraguay e ingresa por pasos no habilitados de la Macrozona Norte, con concentración en Antofagasta. Las ferias libres concentran ~57% de la venta. Mercado estimado en US$ 617 MM; pérdida fiscal ~US$ 1.000 MM anuales (más de la mitad del presupuesto de Carabineros). El 80% de los grandes decomisos se asocia a presencia de drogas y armamento.'),
+n('mk-casinos','mercado','Juego ilegal y apuestas en línea',null,null,'Nacional / extraterritorial',['comercializacion','financiera'],'indiciario',F_CPC+' (H2 Gambling Capital)','Plataformas online sin regulación local y con domicilio en el extranjero: ingresos brutos por US$ 625 MM (2025), proyectados a US$ 1.445 MM en 2030 — superan los ingresos de los 25 casinos legales (US$ 588 MM, 2024). Algunas operan como vehículos de lavado mediante medios de pago de baja trazabilidad.'),
+n('mk-aseo','mercado','Cosmética, aseo y desinfección ilícitos',null,null,'Nacional',['origen','comercializacion'],'indiciario',F_CPC+' (Cámara Cosmética; AGAD)','Mercado ilegal estimado en US$ 600 MM (US$ 250 MM en cosmética), con pérdida fiscal de US$ 136 MM. Brecha regulatoria: productos de aseo sin propiedades antimicrobianas quedan fuera del control sanitario (DS 157/05), incentivando fabricación informal nacional. Las ferias libres concentran ~80% del canal. Seis empresas cesaron producción (~800 empleos).'),
+n('mk-agro','mercado','Agroindustria y agroquímicos ilícitos',null,null,'Nacional',['origen','comercializacion'],'indiciario',F_CPC,'Mercado estimado en US$ 530 MM (pérdida fiscal US$ 95 MM). Robo de insumos, falsificación y contrabando con rotulado engañoso vía puertos. Riesgo crítico: convergencia con narcotráfico y fabricación de explosivos, pues ciertos agroquímicos sirven de precursores. Extorsión a productores en períodos de cosecha.'),
+n('mk-pesca','mercado','Pesca ilegal y sobreexplotación',null,null,'Nacional',['origen','comercializacion'],'indiciario',F_CPC+'; '+F_UCOD,'Mercado estimado en US$ 430 MM (pérdida fiscal US$ 50 MM). Pesca en veda y sin cuota, comercializada en ferias, restaurantes y plataformas de delivery. Debilidad central: ausencia de seguimiento posterior al desembarque; el origen es la fase invisible del sistema.'),
+n('mk-farma','mercado','Comercio ilícito de medicamentos',null,null,'Nacional',['origen','comercializacion','financiera'],'indiciario',F_CPC,'Mercado estimado en US$ 363 MM (pérdida fiscal US$ 85 MM). Uso irregular del art. 21 del DS N° 3 (autorización excepcional sin registro sanitario) mediante recetas falsificadas o profesionales coludidos; ausencia de tipificación específica de la venta ilegal (Boletín 1585-11 en trámite); robo en la cadena logística; y farmacias de fachada empleadas para lavado de activos.'),
+n('mk-auto','mercado','Mercado ilícito automotriz',null,null,'Nacional',['origen','logistica','comercializacion'],'indiciario',F_CPC+'; '+F_UCOD,'Mercado estimado en US$ 362 MM (pérdida fiscal US$ 33 MM). Desarmadurías ilegales, casas de remate para blanquear patentes de vehículos siniestrados, duplicación de placas, facturas falsas y redes de receptación. Robos violentos concentrados en la RM (80%); 44% de detenidos son menores de edad — mercado de iniciación adolescente.'),
+n('mk-cobre','mercado','Robo de cobre y telecomunicaciones',null,null,'Nacional',['origen','logistica'],'indiciario',F_CPC+'; '+F_UCOD+' (Operación «Oro Rojo», Aduanas 2025)','Mercado estimado en US$ 95 MM (pérdida fiscal US$ 15 MM). Sustracción de cables e infraestructura correlacionada con el precio del cobre; procesamiento en chatarrerías y exportación por puertos nacionales. Bandas internacionales desarticuladas por Aduanas confirman la dimensión transnacional.'),
+n('mk-salmon','mercado','Robo y desvío de salmón',null,null,'Los Lagos / Aysén',['origen','comercializacion'],'indiciario',F_CPC+'; '+F_UCOD,'Mercado estimado en US$ 70 MM (pérdida fiscal US$ 14 MM). Robo en centros de cultivo, desvío y subdeclaración de producción, con inserción directa en el mercado formal. Cadenas logísticas capaces de lavar activos en mercados formales (Macrozona Sur).'),
+n('mk-madera','mercado','Mercado ilícito de la madera',null,null,'Macrozona Sur',['origen','financiera'],'indiciario',F_CPC+'; '+F_UCOD,'Mercado estimado en US$ 20 MM (pérdida fiscal US$ 5 MM); cifra probablemente subestimada. Tala ilegal, usurpación y guías fraudulentas que permiten la legalización progresiva del producto. En 2024 se registraron condenas por lavado con sustracción de madera como delito base (5 personas).'),
+n('mk-mineria','mercado','Ilícitos en minería',null,null,'Norte grande',['origen','comercializacion'],'hipotesis',F_CPC+' (SONAMI, Senado)','La información disponible no permite una estimación consolidada: piso mínimo comprobable de US$ 0,8 MM anuales (denuncias Atacama 2020-2022); SONAMI estimó robos por ~US$ 11,4 MM en 2022. Extracción no autorizada, robo de mineral y exportación irregular con declaraciones falsas por canales formales. La magnitud real requiere corroboración metodológica.'),
+n('mk-credito','mercado','Crédito informal y fraude financiero',null,null,'Nacional',['comercializacion','financiera','predatoria'],'indiciario',F_CPC,'Flujo anual estimado en ~US$ 2.000 MM (créditos informales + fraude en medios de pago atribuible a bandas). Préstamo extorsivo («gota a gota») operado por redes transnacionales con cobro coercitivo; la reducción de la Tasa Máxima Convencional (2013) excluyó a segmentos que hoy captan redes informales (FMI y Banco Mundial sugirieron su eliminación, 2022). Tasa de fraude hasta 6,5 veces superior a Europa.'),
+n('mk-trata','mercado','Trata de personas',null,null,'Nacional',['predatoria'],'acreditado',F_UCOD+', pp. 56-57','El 75% de las investigaciones 2024 corresponde a explotación sexual. Chile recuperó la clasificación Tier 1 (TIP Report 2025). Sentencias pioneras: primera condena a integrantes del Tren de Aragua (Los Lagos) y primera condena a personas jurídicas (Los Gallegos, Arica, Ley 20.393). Alta cifra negra por temor y no autoidentificación de las víctimas. Brecha: falta de tipo penal de trabajo forzado.'),
+n('mk-migrantes','mercado','Tráfico ilícito de migrantes',null,null,'Macrozona Norte',['origen','predatoria'],'acreditado',F_UCOD+', pp. 55-58','Mercado de entrada del Tren de Aragua a la región («control de trochas»). Persecución reorientada hacia asociaciones ilícitas dedicadas al fenómeno, más que a hechos aislados. Población irregular pasó del 2,0% (2018) al 29,7% (2023) del total de extranjeros.'),
+n('mk-armas','mercado','Tráfico de armas',null,null,'Nacional',['origen','logistica'],'acreditado',F_UCOD+', pp. 59-65','Aumento del 90% en ingresos por tráfico de armas entre 2023 y 2024. La mayoría de las armas incautadas vinculadas a delitos son de origen ilegal: importadas, de fabricación artesanal o adaptadas (pistolas de fogueo). Instrumento de control territorial de la Macrozona Centro.'),
+n('mk-extorsion','mercado','Extorsiones y secuestros',null,null,'Nacional',['predatoria'],'acreditado',F_UCOD+', pp. 49-55','Delitos parasitarios o predatorios: los de mayor crecimiento relativo en 2024. Vinculación directa con bandas transnacionales, particularmente el Tren de Aragua y sus células. Explotan la vulnerabilidad de comunidades migrantes.'),
+n('mk-celulares','mercado','Celulares en recintos penitenciarios',null,null,'Nacional',['logistica','comercializacion'],'acreditado',F_UCOD+', pp. 66-68','Promedio de al menos 21 dispositivos incautados diariamente durante 2024. Facilita extorsiones, tráfico y estafas digitales desde el interior de las cárceles, con registro de actos de violencia para demostrar control. Riesgo de integridad institucional por complicidad de algunos funcionarios.'),
+n('mk-lavado','mercado','Lavado de activos (fase económica)',null,null,'Nacional',['financiera'],'acreditado',F_UCOD+', pp. 74-81 (art. 27, Ley 19.913)','Delito autónomo, pilar estructural de la economía criminal. En 2024: 57 sentencias condenatorias vinculadas a crimen organizado (89% vía procedimiento abreviado) y 100 personas condenadas (65% hombres, 35% mujeres); delito base predominante: tráfico de drogas (60), seguido de asociación ilícita (39). Tipologías principales: testaferrato (27%), adquisición de vehículos (27%), sociedades de pantalla o fachada (13%), inmuebles (12%), pitufeo y presta cuentas (3% c/u); además gatekeepers profesionales, remesas, triangulación bancaria y black market peso exchange. Multas 2024 > $200 MM. Concentración territorial: RM (69 condenas), Arica y Parinacota, Valparaíso y Maule (6 c/u).'),
+// XI Informe de Tipologías UAF (2020-2024)
+n('doc-uaf','documento','XI Informe de Tipologías UAF (2020-2024)',-33.458,-70.632,'Nacional',['documenta','financiera'],'acreditado',F_UAF,'Análisis de las 199 sentencias definitivas condenatorias por lavado de activos dictadas entre 2020 y 2024 (363 personas condenadas: 229 hombres y 134 mujeres), 174 de ellas sistematizadas en 103 casos. El 86,9% se obtuvo por procedimiento abreviado. Comisos por CLP 9.481 millones (≈US$ 9,6 millones) en el quinquenio: dinero 35,5%, vehículos 34,7% (284 unidades), inmuebles 29,5% (54 bienes, con el 76,2% del monto en la RM; comunas líderes: Peñalolén, Quinta Normal, Colina). Multas por CLP 1.152 millones. Conexión internacional en el 27,2% de los casos, con Bolivia como país más recurrente. Serie histórica 2007-2024: 383 sentencias y 750 personas condenadas.'),
+n('mk-sociedades','mercado','Estructuras societarias de blanqueo',null,null,'Nacional',['financiera'],'acreditado',F_UAF,'De los 103 casos sistematizados, 81 (78,6%) emplearon 139 sociedades: SpA 77 (55,4%), Ltda. 23 (16,5%), EIRL 13, entre otras. La tipología de creación de personas o estructuras jurídicas aparece en 46 casos: sociedades de pantalla (54,3%), de fachada (43,5%) y de papel (28,3%). La sociedad por acciones se consolida como el vehículo societario predilecto del blanqueo, atendida la facilidad de su constitución y la flexibilidad de su administración.'),
+n('mk-sectores','mercado','Sectores formales vulnerados por el lavado',null,null,'Nacional',['financiera'],'acreditado',F_UAF,'Sectores lícitos utilizados indebidamente por los blanqueadores (su inclusión no implica participación en el delito): comercializadoras de vehículos (77,7% de los casos), bancos (44,7%), notarios (42,7%) y conservadores de bienes raíces (38,8%). Productos financieros más usados: efectivo (86,4%), cuentas bancarias (64,2%), créditos (25,9%) y vales vista (8,6%); se observa además el uso de billeteras de activos virtuales, leasing y tarjetas de prepago. Principales señales de alerta: adquirente que oculta la identidad del verdadero comprador y operaciones que no se condicen con la capacidad económica del cliente (56,3% cada una).'),
+n('mk-corrupcion','mercado','Corrupción y fraude al Fisco (delito base)',null,null,'Nacional',['financiera'],'acreditado',F_UAF,'Delito base en expansión dentro de las condenas por lavado: malversación de caudales públicos (5 sentencias, 12 condenados), fraude al Fisco (4 y 11), cohecho y fraude de subvenciones. La UAF constata una diversificación de los delitos generadores de recursos ilícitos, con aumento progresivo de sentencias por corrupción, contrabando y estafa, manteniéndose el narcotráfico como delito base principal (70 sentencias, 109 condenados; 61% del monto de las multas).')
+];
+
+const ENLACES_SEMILLA=[
+// Rutas cocaína
+e('r1','lg-bolivia','lg-colchane','abastece cocaína y cannabis por','origen','acreditado',F_UCOD+', pp. 34-35','Ingreso de cocaína boliviana y marihuana prensada por el principal paso de Tarapacá y sus rutas irregulares aledañas.'),
+e('r2','lg-bolivia','lg-ollague','abastece cocaína y cannabis por','origen','acreditado',F_UCOD+', p. 34','La mayor parte de la cocaína que ingresa a Antofagasta proviene de Bolivia.'),
+e('r3','lg-bolivia','lg-hitocajon','abastece drogas por','origen','acreditado',F_UCOD+', p. 34','Rutas clandestinas aledañas al paso.'),
+e('r4','lg-peru','lg-chacalluta','abastece cocaína y ketamina por','origen','acreditado',F_UCOD+', pp. 34-35','Perú como productor y ruta de paso; ketamina líquida adquirida en Perú e ingresada por Arica.'),
+e('r5','lg-peru','lg-visviri','abastece drogas por','origen','acreditado',F_UCOD+', p. 34','Pasos habilitados y no habilitados de General Lagos y Putre.'),
+e('r6','lg-paraguay','lg-colchane','envía cannabis prensada hacia','origen','acreditado',F_UCOD+', p. 34','Marihuana prensada paraguaya vía territorio boliviano.'),
+e('r7','lg-paraguay','lg-libertadores','envía ketamina hacia','origen','acreditado',F_UCOD+', p. 35','Incautaciones de ketamina de origen paraguayo en el complejo Los Libertadores.'),
+e('r8','lg-colombia','lg-colchane','envía «cripy» y cocaína vía Bolivia hacia','origen','acreditado',F_UCOD+', p. 34','Cocaína colombiana llega principalmente a través de territorio boliviano y peruano.'),
+e('r9','lg-colchane','lg-altohospicio','deriva carga hacia','logistica','acreditado',F_UCOD+', p. 34','Traslado en bloques compactos hacia centros urbanos cercanos para acopio y fraccionamiento.'),
+e('r10','lg-altohospicio','lg-iquique','fracciona y redistribuye hacia','logistica','acreditado',F_UCOD+', p. 34','Iquique permite almacenamiento y redistribución hacia otras regiones por su condición urbana y portuaria.'),
+e('r11','lg-ollague','lg-calama','deriva carga hacia','logistica','acreditado',F_UCOD+', p. 34','Calama concentra la organización logística del traslado a la zona central.'),
+e('r12','lg-hitocajon','lg-calama','deriva carga hacia','logistica','acreditado',F_UCOD+', p. 34',''),
+e('r13','lg-calama','lg-santiago','traslada cocaína por vía terrestre hacia','logistica','acreditado',F_UCOD+', p. 34','Traslado terrestre mayoritariamente hacia la Región Metropolitana.'),
+e('r14','lg-iquique','lg-santiago','redistribuye hacia','logistica','acreditado',F_UCOD+', p. 34',''),
+e('r15','lg-calama','lg-antofagasta','abastece tráfico portuario en','logistica','acreditado',F_UCOD+', p. 35','Antofagasta como punto clave de salida internacional.'),
+e('r16','lg-santiago','lg-valparaiso','deriva carga de exportación a','logistica','acreditado',F_UCOD+', p. 34',''),
+e('r17','lg-santiago','lg-sanantonio','deriva carga de exportación a','logistica','acreditado',F_UCOD+', p. 34',''),
+e('r18','lg-sanantonio','lg-europa','exporta cocaína hacia','comercializacion','acreditado',F_UCOD+', p. 34','Exportación mediante contaminación de contenedores y otras modalidades portuarias.'),
+e('r19','lg-valparaiso','lg-europa','exporta cocaína hacia','comercializacion','acreditado',F_UCOD+', p. 34',''),
+e('r20','lg-sanantonio','lg-oceania','exporta cocaína hacia','comercializacion','acreditado',F_UCOD+', p. 34',''),
+// Cannabis nacional
+e('r21','lg-coquimbo','lg-santiago','abastece cannabis local hacia','logistica','acreditado',F_UCOD+', p. 34','Mezcla de marihuana importada con producción local antes de la redistribución.'),
+e('r22','lg-petorca','lg-santiago','abastece cannabis local hacia','logistica','acreditado',F_UCOD+', p. 34',''),
+// Mercados ↔ lugares
+e('m1','mk-cocaina','lg-colchane','ingresa principalmente por','origen','acreditado',F_UCOD+', pp. 34-35',''),
+e('m2','mk-cannabis','lg-coquimbo','se produce en','origen','acreditado',F_UCOD+', p. 34','Cultivos indoor y outdoor en los valles de Elqui, Limarí y Choapa.'),
+e('m3','mk-ketamina','lg-libertadores','ingresa desde Paraguay por','origen','acreditado',F_UCOD+', p. 35',''),
+e('m4','mk-ketamina','lg-chacalluta','ingresa desde Perú por','origen','acreditado',F_UCOD+', p. 35',''),
+e('m5','mk-fentanilo','lg-antofagasta','registró incautación histórica en','origen','acreditado',F_UCOD+', p. 35','1.195 ampollas incautadas en junio de 2024, investigación de la Fiscalía Regional de Antofagasta.'),
+e('m6','mk-tabaco','lg-paraguay','se produce mayoritariamente en','origen','indiciario',F_CPC+' (Kantar 2025)','Más del 70% del producto ilícito es de origen paraguayo.'),
+e('m7','mk-tabaco','lg-antofagasta','ingresa por pasos no habilitados de','origen','indiciario',F_CPC,'Concentración del ingreso terrestre por la frontera con Bolivia, Región de Antofagasta.'),
+e('m8','mk-auto','lg-iquique','usa la Zona Franca como nodo de','origen','indiciario',F_CPC,'Ingreso y tránsito de vehículos y componentes sin completar internación ni tributos.'),
+e('m9','mk-auto','lg-maule','ensambla «camiones hechizos» en','origen','acreditado',F_UCOD+'; '+F_CPC,'Registro fraudulento con identidades de camiones robados o quemados en la Macrozona Sur.'),
+e('m10','mk-auto','lg-santiago','concentra robos violentos en','predatoria','acreditado',F_UCOD,'80% de portonazos y encerronas; 44% de detenidos menores de edad.'),
+e('m11','mk-cobre','lg-sanantonio','exporta material sustraído por','logistica','indiciario',F_CPC+'; Aduanas, Operación «Oro Rojo» (2025)','Cadena: sustracción → chatarrerías → exportación a mercados internacionales.'),
+e('m12','mk-madera','lg-araucania','opera territorialmente en','origen','acreditado',F_UCOD+'; '+F_CPC,''),
+e('m13','mk-salmon','lg-loslagos','sustrae y desvía producción en','origen','indiciario',F_CPC+'; '+F_UCOD,''),
+e('m14','mk-pesca','lg-loslagos','extrae sobre cuota y en veda en','origen','indiciario',F_CPC,'Comercialización posterior en ferias, restaurantes y delivery.'),
+e('m15','mk-migrantes','lg-colchane','canaliza ingresos irregulares por','origen','acreditado',F_UCOD,'Pasos no habilitados de Tarapacá empleados también para tráfico de personas.'),
+e('m16','mk-mineria','lg-antofagasta','coloca mineral robado desde faenas del norte en','comercializacion','hipotesis',F_CPC+' (SONAMI)','Intermediación informal, declaraciones falsas y exportación por canales formales; magnitud sujeta a corroboración.'),
+// Organizaciones ↔ lugares / mercados
+e('o1','org-tda','lg-colchane','utiliza para ingreso de ketamina el','origen','acreditado',F_UCOD+', p. 35','Tránsito posterior hacia la zona centro-sur del país.'),
+e('o2','org-gallegos','org-tda','opera como célula del','predatoria','acreditado',F_UCOD+', p. 96','Franquicia territorial en Arica y Parinacota.'),
+e('o3','org-gallegos','mk-trata','fue condenada (personas jurídicas) por','predatoria','acreditado',F_UCOD+', pp. 56-57','Primera condena a personas jurídicas por trata sexual (Ley 20.393): disolución y cancelación de personalidad jurídica.'),
+e('o4','org-tda','mk-migrantes','inició su expansión regional mediante','origen','acreditado',F_UCOD+', p. 96','«El control de las trochas entre Venezuela y Colombia marcó el inicio del negocio» (Sampó, 2024).'),
+e('o5','org-tda','mk-extorsion','ejerce control territorial mediante','predatoria','acreditado',F_UCOD,'Extorsiones y secuestros vinculados directamente a la organización y sus células.'),
+e('o6','org-tda','mk-lavado','legitima ganancias mediante','financiera','acreditado',F_UCOD,'El lavado figura entre sus actividades delictivas caracterizadas.'),
+e('o7','org-pulpos','mk-extorsion','se especializa en','predatoria','acreditado',F_UCOD+', p. 97','Extorsiones en la Región Metropolitana.'),
+e('o8','org-orientales','mk-extorsion','ejecuta secuestros en el marco de','predatoria','acreditado',F_UCOD+', p. 97','Presencia en RM y Los Lagos.'),
+e('o9','org-melean','mk-extorsion','se especializa en','predatoria','acreditado',F_UCOD+', p. 97',''),
+e('o10','org-laempresa','mk-credito','opera usura y crédito extorsivo en','financiera','acreditado',F_UCOD+', p. 97','Valparaíso: usura, amenazas y extorsiones.'),
+e('o11','org-fujian','mk-lavado','canaliza fondos ilícitos mediante','financiera','acreditado',F_UCOD+', p. 97',''),
+e('o12','org-calenos','mk-lavado','blanquea rentas del narcotráfico mediante','financiera','acreditado',F_UCOD+', p. 96',''),
+e('o13','org-vilches','mk-lavado','blanquea rentas mediante','financiera','acreditado',F_UCOD+', p. 97',''),
+e('o14','org-trinitarios','mk-lavado','blanquea rentas mediante','financiera','acreditado',F_UCOD+', p. 97',''),
+e('o15','org-confederacion','lg-magallanes','opera narcotráfico y armas en','origen','acreditado',F_UCOD+', p. 97',''),
+e('o16','org-loyalty','lg-araucania','opera drogas, extorsiones y secuestros en','predatoria','acreditado',F_UCOD+', p. 97',''),
+e('o17','org-shottas','lg-iquique','disputa control territorial en','predatoria','acreditado',F_UCOD,'Presencia en Tarapacá, Antofagasta, Atacama y RM.'),
+e('o18','org-espartanos','lg-iquique','disputa control territorial en','predatoria','acreditado',F_UCOD,''),
+e('o19','org-costenos','lg-chacalluta','trafica drogas por el eje de','origen','acreditado',F_UCOD+', p. 97',''),
+e('o20','org-pcc','lg-bolivia','se abastece de cocaína desde','origen','indiciario',F_UCOD+', p. 33','Vínculos identificados con organizaciones en Chile dedicadas al tráfico desde Bolivia y Paraguay.'),
+e('o21','org-cv','lg-paraguay','se abastece de cocaína y cannabis desde','origen','indiciario',F_UCOD+', p. 33',''),
+e('o22','org-sinaloa','lg-europa','coordina logística de exportación hacia','logistica','indiciario',F_UCOD+', p. 33','Asociado a la logística de exportación de cocaína desde Chile a Europa y Oceanía.'),
+e('o23','org-cjng','lg-oceania','coordina logística de exportación hacia','logistica','indiciario',F_UCOD+', p. 33',''),
+e('o24','org-mafianorte','lg-colchane','controla rutas de ingreso próximas a','origen','indiciario',F_UCOD+', p. 97','Vínculos con organizaciones bolivianas.'),
+e('o25','org-lobos','lg-santiago','trafica drogas y armas en','comercializacion','acreditado',F_UCOD+', p. 96',''),
+// Fase económica — lavado como nodo articulador
+e('f1','mk-cocaina','mk-lavado','constituye el principal delito base del','financiera','acreditado',F_UCOD+', p. 77','60 de 100 condenados por lavado (2024) tienen tráfico de drogas como delito precedente.'),
+e('f2','mk-madera','mk-lavado','alimenta con sustracción de madera al','financiera','acreditado',F_UCOD+', p. 78','5 condenados por lavado con sustracción de madera como delito base (2024).'),
+e('f3','mk-credito','mk-lavado','converge con esquemas de','financiera','indiciario',F_CPC+'; '+F_UCOD,'Usura y fraude como delitos base; condena por usura registrada en 2024.'),
+e('f4','mk-casinos','mk-lavado','sirve de vehículo de','financiera','indiciario',F_CPC,'Medios de pago de baja trazabilidad y domicilios en el extranjero.'),
+e('f5','mk-farma','mk-lavado','emplea farmacias de fachada para','financiera','indiciario',F_CPC,'Establecimientos con apariencia formal que canalizan recursos de origen ilícito.'),
+e('f6','mk-lavado','lg-santiago','se concentra judicialmente en','financiera','acreditado',F_UCOD+', p. 76','69 de las condenas 2024; Santiago como nodo financiero y logístico de inserción en el mercado formal.'),
+e('f7','mk-auto','mk-lavado','provee la tipología de adquisición de vehículos al','financiera','acreditado',F_UCOD+', p. 79','Adquisición de vehículos: 27% de las maniobras detectadas, junto al testaferrato (27%).'),
+e('f8','mk-tabaco','mk-cocaina','comparte corredores logísticos con','logistica','indiciario',F_CPC+' (BAT)','El 80% de los grandes decomisos de cigarrillos se asocia a presencia de drogas y armamento.'),
+e('f9','mk-armas','mk-cocaina','protege y disciplina el','logistica','acreditado',F_UCOD,'Armas de fuego como herramienta de control territorial del narcotráfico.'),
+e('f10','mk-celulares','mk-extorsion','coordina desde recintos penales las','predatoria','acreditado',F_UCOD+', pp. 66-68','21 dispositivos incautados al día (2024); coordinación de delitos intra y extramuros.'),
+e('f11','mk-agro','mk-cocaina','provee precursores químicos al','origen','hipotesis',F_CPC,'Ciertos agroquímicos pueden emplearse como precursores de drogas o componentes de explosivos; inferencia que requiere corroboración caso a caso.'),
+// Documentos
+e('d1','doc-ucod','org-tda','caracteriza y georreferencia a','documenta','acreditado',F_UCOD,''),
+e('d2','doc-ucod','mk-lavado','dedica capítulo inédito al','documenta','acreditado',F_UCOD,''),
+e('d3','doc-ucod','mk-cocaina','traza las rutas del','documenta','acreditado',F_UCOD,''),
+e('d4','doc-cpc','mk-tabaco','valoriza económicamente el','documenta','indiciario',F_CPC,''),
+e('d5','doc-cpc','mk-credito','estima el flujo del','documenta','indiciario',F_CPC,''),
+e('d6','doc-cpc','mk-casinos','estima el flujo del','documenta','indiciario',F_CPC,''),
+e('d7','doc-cpc','lg-iquique','identifica como nodo sensible a','documenta','indiciario',F_CPC,''),
+// Conexiones XI Informe UAF
+e('u1','doc-uaf','mk-lavado','sistematiza judicialmente el','documenta','acreditado',F_UAF,'199 sentencias y 363 condenados (2020-2024), 103 casos sistematizados; comisos por CLP 9.481 millones en el quinquenio.'),
+e('u2','mk-sociedades','mk-lavado','instrumenta la estratificación del','financiera','acreditado',F_UAF,'81 de 103 casos con uso de 139 sociedades; predominio de la SpA (55,4%), seguida de la Ltda. (16,5%).'),
+e('u3','mk-sectores','mk-lavado','provee los canales de colocación e integración del','financiera','acreditado',F_UAF,'Automotoras (77,7%), bancos (44,7%), notarios (42,7%) y conservadores de bienes raíces (38,8%); el efectivo aparece en el 86,4% de los casos.'),
+e('u4','mk-auto','mk-sectores','converge con la vulneración de automotoras constatada por la UAF en','financiera','acreditado',F_UAF,'Las comercializadoras de vehículos encabezan los sectores vulnerados, en línea con la tipología de adquisición de vehículos: 284 vehículos decomisados por CLP 3.290 millones (34,7% del comiso total).'),
+e('u5','mk-corrupcion','mk-lavado','emerge como delito base del','financiera','acreditado',F_UAF,'Diversificación de los delitos base: aumento progresivo de condenas por corrupción, contrabando y estafa.'),
+e('u6','mk-lavado','lg-bolivia','registra su principal conexión internacional con','financiera','acreditado',F_UAF,'El 27,2% de los casos presenta vínculo internacional; Bolivia es el país más recurrente, seguido de Colombia, Estados Unidos, Perú y naciones europeas.'),
+e('u7','doc-uaf','lg-santiago','confirma la concentración judicial del lavado en','documenta','acreditado',F_UAF,'La RM concentra 143 de 199 sentencias (71,9%, con 242 condenados) y el 76,2% del monto de inmuebles decomisados; Aysén y Magallanes no registran sentencias en el quinquenio.')
+];
+
+/* ================= ESTADO ================= */
+let estado={nodosUsuario:[],enlacesUsuario:[],eliminados:[]};
+let filtros={fases:new Set(Object.keys(FASES)),tipos:new Set(Object.keys(TIPOS)),epi:new Set(Object.keys(EPI)),q:''};
+let mapa,capaMapa,simulacion,gSvg,gRaiz;
+
+function nodos(){return NODOS_SEMILLA.concat(estado.nodosUsuario).filter(x=>!estado.eliminados.includes(x.id));}
+function enlaces(){const ids=new Set(nodos().map(x=>x.id));
+  return ENLACES_SEMILLA.concat(estado.enlacesUsuario).filter(x=>!estado.eliminados.includes(x.id)&&ids.has(x.a)&&ids.has(x.b));}
+
+function pasaNodo(x){
+  if(!filtros.tipos.has(x.tipo))return false;
+  if(!filtros.epi.has(x.epi))return false;
+  if(!x.fases.some(f=>filtros.fases.has(f)))return false;
+  if(filtros.q){const q=filtros.q.toLowerCase();
+    if(!((x.nombre||'').toLowerCase().includes(q)||(x.desc||'').toLowerCase().includes(q)||(x.region||'').toLowerCase().includes(q)||(x.fuente||'').toLowerCase().includes(q)))return false;}
+  return true;
+}
+function nodosVisibles(){return nodos().filter(pasaNodo);}
+function enlacesVisibles(){
+  const vis=new Set(nodosVisibles().map(x=>x.id));
+  return enlaces().filter(en=>vis.has(en.a)&&vis.has(en.b)&&filtros.fases.has(en.fase)&&filtros.epi.has(en.epi));
+}
+
+/* ================= PERSISTENCIA ================= */
+async function cargar(){
+  try{const r=await window.storage.get('atlas-ci-v1');
+    if(r&&r.value){const d=JSON.parse(r.value);
+      estado.nodosUsuario=d.nodosUsuario||[];estado.enlacesUsuario=d.enlacesUsuario||[];estado.eliminados=d.eliminados||[];}
+  }catch(err){/* sin datos previos */}
+}
+async function guardar(){
+  try{await window.storage.set('atlas-ci-v1',JSON.stringify(estado));}
+  catch(err){console.error('No fue posible guardar',err);aviso('No fue posible guardar los cambios en este dispositivo');}
+}
+function aviso(t){const a=document.getElementById('aviso');a.textContent=t;a.classList.add('visible');
+  clearTimeout(a._t);a._t=setTimeout(()=>a.classList.remove('visible'),2600);}
+
+/* ================= FILTROS (UI) ================= */
+function construirFiltros(){
+  const ff=document.getElementById('f-fases');
+  ff.innerHTML=Object.entries(FASES).map(([k,v])=>
+    `<label class="f-item"><input type="checkbox" data-g="fases" value="${k}" checked><span class="chip-fase" style="background:${v.c}"></span>${v.n}</label>`).join('');
+  const ft=document.getElementById('f-tipos');
+  ft.innerHTML=Object.entries(TIPOS).map(([k,v])=>
+    `<label class="f-item"><input type="checkbox" data-g="tipos" value="${k}" checked><span class="chip-tipo" style="background:${v.c}"></span>${v.n}</label>`).join('');
+  const fe=document.getElementById('f-epi');
+  fe.innerHTML=Object.entries(EPI).map(([k,v])=>
+    `<label class="f-item"><input type="checkbox" data-g="epi" value="${k}" checked><span class="chip-fase" style="background:${v.c};border-radius:50%"></span>${v.n}</label>`).join('');
+  document.querySelectorAll('#filtros input[type=checkbox]').forEach(ch=>{
+    ch.addEventListener('change',()=>{
+      const g=ch.dataset.g;if(ch.checked)filtros[g].add(ch.value);else filtros[g].delete(ch.value);
+      renderTodo();
+    });
+  });
+  const ley=document.getElementById('leyenda-mapa');
+  Object.entries(FASES).forEach(([k,v])=>{
+    const d=document.createElement('div');d.className='fila';
+    d.innerHTML=`<span class="trazo" style="border-color:${v.c}"></span>${v.n}`;ley.appendChild(d);
+  });
+}
+
+/* ================= MAPA ================= */
+function iniciarMapa(){
+  mapa=L.map('mapa',{zoomControl:true,worldCopyJump:true}).setView([-27.5,-69.5],4);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:12}).addTo(mapa);
+  capaMapa=L.layerGroup().addTo(mapa);
+}
+function arco(a,b){
+  const lat1=a[0],lon1=a[1],lat2=b[0],lon2=b[1];
+  const mx=(lat1+lat2)/2, my=(lon1+lon2)/2;
+  const dx=lat2-lat1, dy=lon2-lon1;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  const k=Math.min(0.22,18/Math.max(dist,1)*0.02+0.10);
+  const cx=mx-dy*k, cy=my+dx*k;
+  const pts=[];
+  for(let t=0;t<=1.0001;t+=0.05){
+    const l1=(1-t)*(1-t)*lat1+2*(1-t)*t*cx+t*t*lat2;
+    const l2=(1-t)*(1-t)*lon1+2*(1-t)*t*cy+t*t*lon2;
+    pts.push([l1,l2]);
+  }
+  return pts;
+}
+function renderMapa(){
+  if(!mapa)return;
+  capaMapa.clearLayers();
+  const vs=nodosVisibles(), idx={};vs.forEach(x=>idx[x.id]=x);
+  enlacesVisibles().forEach(en=>{
+    const A=idx[en.a],B=idx[en.b];
+    if(!A||!B||A.lat==null||B.lat==null)return;
+    const pl=L.polyline(arco([A.lat,A.lon],[B.lat,B.lon]),{
+      color:FASES[en.fase].c,weight:en.fase==='documenta'?1:1.8,opacity:.62,
+      dashArray:en.epi==='hipotesis'?'3 6':(en.epi==='indiciario'?'8 5':null)});
+    pl.on('click',()=>abrirFichaEnlace(en));
+    pl.bindTooltip(`<span style="font-family:'IBM Plex Mono',monospace;font-size:10px">${A.nombre} → ${B.nombre}</span>`,{sticky:true,className:'',opacity:.92});
+    pl.addTo(capaMapa);
+  });
+  vs.forEach(x=>{
+    if(x.lat==null)return;
+    const c=TIPOS[x.tipo].c;
+    const m=L.circleMarker([x.lat,x.lon],{radius:x.tipo==='organizacion'?7:6,color:c,weight:1.5,fillColor:c,fillOpacity:.55});
+    m.on('click',()=>abrirFichaNodo(x.id));
+    m.addTo(capaMapa);
+    const et=L.marker([x.lat,x.lon],{icon:L.divIcon({className:'etq-nodo',html:`<div>${x.nombre}</div>`,iconAnchor:[-8,4]}),interactive:false});
+    et.addTo(capaMapa);
+  });
+}
+
+/* ================= GRAFO ================= */
+function renderGrafo(){
+  const svg=d3.select('#grafo-svg');
+  svg.selectAll('*').remove();
+  const W=document.getElementById('v-grafo').clientWidth||900;
+  const H=document.getElementById('v-grafo').clientHeight||600;
+  const raiz=svg.append('g');
+  svg.call(d3.zoom().scaleExtent([0.25,4]).on('zoom',ev=>raiz.attr('transform',ev.transform)));
+  const ns=nodosVisibles().map(x=>Object.assign({},x));
+  const idx=new Set(ns.map(x=>x.id));
+  const es=enlacesVisibles().filter(en=>idx.has(en.a)&&idx.has(en.b)).map(en=>Object.assign({source:en.a,target:en.b},en));
+  const grado={};es.forEach(en=>{grado[en.a]=(grado[en.a]||0)+1;grado[en.b]=(grado[en.b]||0)+1;});
+
+  const link=raiz.append('g').selectAll('path').data(es).join('path')
+    .attr('class','g-enlace')
+    .attr('stroke',d=>FASES[d.fase].c)
+    .attr('stroke-width',d=>d.fase==='documenta'?1:1.6)
+    .attr('stroke-dasharray',d=>d.epi==='hipotesis'?'2 5':(d.epi==='indiciario'?'7 4':null))
+    .style('cursor','pointer')
+    .on('click',(ev,d)=>abrirFichaEnlace(d));
+
+  const nodo=raiz.append('g').selectAll('g').data(ns).join('g').attr('class','g-nodo')
+    .call(d3.drag()
+      .on('start',(ev,d)=>{if(!ev.active)simulacion.alphaTarget(0.25).restart();d.fx=d.x;d.fy=d.y;})
+      .on('drag',(ev,d)=>{d.fx=ev.x;d.fy=ev.y;})
+      .on('end',(ev,d)=>{if(!ev.active)simulacion.alphaTarget(0);d.fx=null;d.fy=null;}))
+    .on('click',(ev,d)=>abrirFichaNodo(d.id));
+  nodo.append('circle')
+    .attr('r',d=>5+Math.min(9,(grado[d.id]||1)*1.1))
+    .attr('fill',d=>TIPOS[d.tipo].c).attr('fill-opacity',.75)
+    .attr('stroke',d=>TIPOS[d.tipo].c).attr('stroke-width',1.5);
+  nodo.append('text').attr('dx',12).attr('dy',4).text(d=>d.nombre.length>34?d.nombre.slice(0,32)+'…':d.nombre);
+
+  simulacion=d3.forceSimulation(ns)
+    .force('link',d3.forceLink(es).id(d=>d.id).distance(d=>d.fase==='documenta'?150:95).strength(.5))
+    .force('carga',d3.forceManyBody().strength(-320))
+    .force('centro',d3.forceCenter(W/2,H/2))
+    .force('colision',d3.forceCollide(24))
+    .on('tick',()=>{
+      link.attr('d',d=>{
+        const dx=d.target.x-d.source.x, dy=d.target.y-d.source.y;
+        const dr=Math.sqrt(dx*dx+dy*dy)*1.6;
+        return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+      });
+      nodo.attr('transform',d=>`translate(${d.x},${d.y})`);
+    });
+}
+
+/* ================= FICHA ================= */
+function selloHTML(epi){return `<span class="sello ${epi}">${EPI[epi].n}</span>`}
+function abrirFichaNodo(id){
+  const x=nodos().find(v=>v.id===id);if(!x)return;
+  document.getElementById('ficha-tipo').innerHTML=
+    `<span class="chip-tipo" style="background:${TIPOS[x.tipo].c}"></span><span style="color:${TIPOS[x.tipo].c}">${TIPOS[x.tipo].n}</span>`;
+  document.getElementById('ficha-nombre').textContent=x.nombre;
+  const cons=enlaces().filter(en=>en.a===id||en.b===id);
+  const consHTML=cons.map(en=>{
+    const otroId=en.a===id?en.b:en.a;
+    const otro=nodos().find(v=>v.id===otroId);if(!otro)return'';
+    const dir=en.a===id?'→':'←';
+    return `<div class="conexion" style="border-left-color:${FASES[en.fase].c}" onclick="abrirFichaNodo('${otroId}')">
+      <div class="rel" style="color:${FASES[en.fase].c}">${FASES[en.fase].n} · ${en.rel}</div>
+      <div class="dest">${dir} ${otro.nombre}</div>
+      ${en.desc?`<div class="det">${en.desc}</div>`:''}</div>`;
+  }).join('')||'<p style="font-size:12px;color:var(--acero-2)">Sin conexiones registradas. Puede crear una desde la pestaña Registro.</p>';
+  document.getElementById('ficha-cuerpo').innerHTML=`
+    ${selloHTML(x.epi)}
+    <div class="ficha-sec"><h5>Fases asociadas</h5><div class="fases-chips">
+      ${x.fases.map(f=>`<span class="fase-chip" style="color:${FASES[f].c};border-color:${FASES[f].c}">${FASES[f].n}</span>`).join('')}
+    </div></div>
+    <div class="ficha-sec">
+      <div class="meta-linea"><b>Jurisdicción</b><span>${x.region||'—'}</span></div>
+      ${x.lat!=null?`<div class="meta-linea"><b>Coordenadas</b><span>${x.lat.toFixed(3)}, ${x.lon.toFixed(3)}</span></div>`:''}
+    </div>
+    <div class="ficha-sec"><h5>Síntesis analítica</h5><p>${x.desc||'—'}</p></div>
+    <div class="ficha-sec"><h5>Fuente</h5><div class="fuente-caja">${x.fuente||'Sin fuente registrada'}</div></div>
+    <div class="ficha-sec"><h5>Conexiones (${cons.length})</h5>${consHTML}</div>
+    ${x.lat!=null?`<button class="btn" onclick="centrarEn('${x.id}')">Ver en el mapa</button>`:''}`;
+  document.getElementById('ficha').classList.add('abierta');
+}
+function abrirFichaEnlace(en){
+  const A=nodos().find(v=>v.id===en.a),B=nodos().find(v=>v.id===en.b);
+  document.getElementById('ficha-tipo').innerHTML=
+    `<span class="chip-fase" style="background:${FASES[en.fase].c}"></span><span style="color:${FASES[en.fase].c}">Conexión · ${FASES[en.fase].n}</span>`;
+  document.getElementById('ficha-nombre').textContent=`${A.nombre} ${en.rel} ${B.nombre}`;
+  document.getElementById('ficha-cuerpo').innerHTML=`
+    ${selloHTML(en.epi)}
+    <div class="ficha-sec"><h5>Detalle</h5><p>${en.desc||'—'}</p></div>
+    <div class="ficha-sec"><h5>Fuente</h5><div class="fuente-caja">${en.fuente||'Sin fuente registrada'}</div></div>
+    <div class="ficha-sec"><h5>Extremos</h5>
+      <div class="conexion" style="border-left-color:${TIPOS[A.tipo].c}" onclick="abrirFichaNodo('${A.id}')"><div class="dest">${A.nombre}</div></div>
+      <div class="conexion" style="border-left-color:${TIPOS[B.tipo].c}" onclick="abrirFichaNodo('${B.id}')"><div class="dest">${B.nombre}</div></div>
+    </div>`;
+  document.getElementById('ficha').classList.add('abierta');
+}
+function centrarEn(id){
+  const x=nodos().find(v=>v.id===id);if(!x||x.lat==null)return;
+  cambiarVista('mapa');mapa.setView([x.lat,x.lon],7,{animate:true});
+}
+document.getElementById('ficha-cerrar').addEventListener('click',()=>document.getElementById('ficha').classList.remove('abierta'));
+
+/* ================= REGISTRO ================= */
+function construirFormularios(){
+  const nf=document.getElementById('n-fases');
+  nf.innerHTML=Object.entries(FASES).filter(([k])=>k!=='documenta').map(([k,v])=>
+    `<label><input type="checkbox" value="${k}" style="accent-color:${v.c}">${v.n}</label>`).join('');
+  const ef=document.getElementById('e-fase');
+  ef.innerHTML=Object.entries(FASES).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('');
+}
+function refrescarSelects(){
+  const ops=nodos().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre))
+    .map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
+  document.getElementById('e-a').innerHTML=ops;
+  document.getElementById('e-b').innerHTML=ops;
+}
+function renderTabla(){
+  const tb=document.getElementById('tbody-nodos');
+  const ns=nodos().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  document.getElementById('c-repo').textContent=`· ${ns.length} registros · ${enlaces().length} conexiones`;
+  tb.innerHTML=ns.map(x=>`<tr>
+    <td>${x.nombre}${x.semilla?'':' <span style="color:var(--oro);font-size:9px;font-family:\'IBM Plex Mono\',monospace">PROPIO</span>'}</td>
+    <td><span style="color:${TIPOS[x.tipo].c}">${TIPOS[x.tipo].n}</span></td>
+    <td>${x.region||'—'}</td>
+    <td><span class="mini-sello" style="color:${EPI[x.epi].c};border-color:${EPI[x.epi].c}">${x.epi}</span></td>
+    <td style="font-size:11px;color:var(--acero)">${(x.fuente||'').slice(0,60)}${(x.fuente||'').length>60?'…':''}</td>
+    <td style="white-space:nowrap"><button class="abrir" onclick="abrirFichaNodo('${x.id}')">Ficha</button><button onclick="eliminarNodo('${x.id}')">Quitar</button></td>
+  </tr>`).join('');
+}
+async function eliminarNodo(id){
+  if(!confirm('¿Quitar este antecedente y sus conexiones del atlas?'))return;
+  estado.eliminados.push(id);
+  enlaces().filter(en=>en.a===id||en.b===id).forEach(en=>estado.eliminados.push(en.id));
+  estado.nodosUsuario=estado.nodosUsuario.filter(x=>x.id!==id);
+  await guardar();renderTodo();aviso('Antecedente retirado del atlas');
+}
+document.getElementById('btn-agregar-nodo').addEventListener('click',async()=>{
+  const nombre=document.getElementById('n-nombre').value.trim();
+  if(!nombre){aviso('Indique el nombre del antecedente');return;}
+  const fases=[...document.querySelectorAll('#n-fases input:checked')].map(i=>i.value);
+  const lat=parseFloat(document.getElementById('n-lat').value), lon=parseFloat(document.getElementById('n-lon').value);
+  estado.nodosUsuario.push({
+    id:'u'+Date.now(),tipo:document.getElementById('n-tipo').value,nombre,
+    lat:isNaN(lat)?null:lat,lon:isNaN(lon)?null:lon,
+    region:document.getElementById('n-region').value.trim(),
+    fases:fases.length?fases:['documenta'],
+    epi:document.getElementById('n-epi').value,
+    fuente:document.getElementById('n-fuente').value.trim(),
+    desc:document.getElementById('n-desc').value.trim(),semilla:false});
+  await guardar();
+  ['n-nombre','n-lat','n-lon','n-region','n-desc','n-fuente'].forEach(i=>document.getElementById(i).value='');
+  document.querySelectorAll('#n-fases input').forEach(i=>i.checked=false);
+  renderTodo();aviso('Antecedente guardado');
+});
+document.getElementById('btn-agregar-enlace').addEventListener('click',async()=>{
+  const a=document.getElementById('e-a').value,b=document.getElementById('e-b').value;
+  if(!a||!b||a===b){aviso('Seleccione dos nodos distintos');return;}
+  estado.enlacesUsuario.push({
+    id:'ue'+Date.now(),a,b,
+    rel:document.getElementById('e-rel').value.trim()||'se vincula con',
+    fase:document.getElementById('e-fase').value,
+    epi:document.getElementById('e-epi').value,
+    desc:document.getElementById('e-desc').value.trim(),
+    fuente:document.getElementById('e-fuente').value.trim(),semilla:false});
+  await guardar();
+  ['e-rel','e-desc','e-fuente'].forEach(i=>document.getElementById(i).value='');
+  renderTodo();aviso('Conexión guardada');
+});
+
+/* ================= EXPORTAR / IMPORTAR ================= */
+document.getElementById('btn-exportar').addEventListener('click',()=>{
+  const data={generado:new Date().toISOString(),nodos:nodos(),enlaces:enlaces()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='atlas-economias-ilicitas.json';a.click();
+  aviso('Atlas exportado en formato JSON');
+});
+document.getElementById('btn-importar').addEventListener('click',()=>document.getElementById('archivo-import').click());
+document.getElementById('archivo-import').addEventListener('change',ev=>{
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=async()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!Array.isArray(d.nodos)&&!Array.isArray(d.enlaces)){
+        aviso('El archivo no corresponde al formato del atlas: se esperan las claves "nodos" y "enlaces"');return;
+      }
+      const semillaIds=new Set(NODOS_SEMILLA.map(x=>x.id).concat(ENLACES_SEMILLA.map(x=>x.id)));
+      let nN=0,nE=0;
+      (d.nodos||[]).forEach(x=>{if(x&&x.id&&!semillaIds.has(x.id)&&!estado.nodosUsuario.find(v=>v.id===x.id)){estado.nodosUsuario.push(x);nN++;}});
+      (d.enlaces||[]).forEach(x=>{if(x&&x.id&&!semillaIds.has(x.id)&&!estado.enlacesUsuario.find(v=>v.id===x.id)){estado.enlacesUsuario.push(x);nE++;}});
+      if(nN===0&&nE===0){aviso('No se incorporaron antecedentes: los elementos ya existían o el archivo estaba vacío');return;}
+      await guardar();renderTodo();aviso(`Antecedentes importados: ${nN} nodo(s) y ${nE} enlace(s)`);
+    }catch(err){aviso('El archivo no tiene un formato válido');}
+  };
+  r.readAsText(f);ev.target.value='';
+});
+
+/* ================= ANÁLISIS ================= */
+function barraHTML(nombre,valor,max,color,onclickId){
+  const pct=max?Math.round(valor/max*100):0;
+  const nom=onclickId?`<span class="nom" onclick="abrirFichaNodo('${onclickId}')">${nombre}</span>`:`<span class="nom" style="cursor:default">${nombre}</span>`;
+  return `<div class="barra-fila">${nom}<div class="pista"><div class="barra" style="width:${pct}%;background:${color}"></div></div><span class="num">${valor}</span></div>`;
+}
+function renderAnalisis(){
+  const ns=nodosVisibles(), es=enlacesVisibles();
+  const idx={};ns.forEach(x=>idx[x.id]=x);
+  const grado={};es.forEach(en=>{grado[en.a]=(grado[en.a]||0)+1;grado[en.b]=(grado[en.b]||0)+1;});
+
+  // Métricas superiores
+  const finanEdges=es.filter(en=>en.fase==='financiera');
+  const hipo=es.filter(en=>en.epi==='hipotesis').length;
+  const indic=es.filter(en=>en.epi==='indiciario').length;
+  const acred=es.filter(en=>en.epi==='acreditado').length;
+  const orgsLavado=new Set();
+  es.forEach(en=>{
+    if(en.fase!=='financiera')return;
+    [en.a,en.b].forEach(id=>{if(idx[id]&&idx[id].tipo==='organizacion')orgsLavado.add(id);});
+  });
+  const mets=[
+    {v:ns.length,e:'Nodos bajo análisis'},
+    {v:es.length,e:'Conexiones vigentes'},
+    {v:finanEdges.length,e:'Conexiones en fase económica'},
+    {v:orgsLavado.size,e:'Organizaciones con vínculo financiero'},
+    {v:(es.length?Math.round(acred/es.length*100):0)+'%',e:'Conexiones acreditadas'}
+  ];
+  document.getElementById('an-metricas').innerHTML=
+    mets.map(m=>`<div class="an-metrica"><div class="valor">${m.v}</div><div class="etq">${m.e}</div></div>`).join('');
+
+  // Centralidad (grado)
+  const top=Object.entries(grado).map(([id,g])=>({id,g,n:idx[id]}))
+    .filter(x=>x.n).sort((a,b)=>b.g-a.g).slice(0,10);
+  const maxG=top.length?top[0].g:1;
+  document.getElementById('an-centralidad').innerHTML=
+    top.map(x=>barraHTML(x.n.nombre,x.g,maxG,TIPOS[x.n.tipo].c,x.id)).join('')||'<p style="font-size:12px;color:var(--acero-2)">Sin datos bajo los filtros vigentes.</p>';
+
+  // Corredores multi-mercado: lugares vinculados a 2+ mercados distintos o 3+ fases
+  const corr=[];
+  ns.filter(x=>x.tipo==='lugar').forEach(lg=>{
+    const mercados=new Set(), fases=new Set();
+    es.forEach(en=>{
+      if(en.a!==lg.id&&en.b!==lg.id)return;
+      fases.add(en.fase);
+      const otro=idx[en.a===lg.id?en.b:en.a];
+      if(otro&&otro.tipo==='mercado')mercados.add(otro.id);
+      if(otro&&otro.tipo==='organizacion')mercados.add(otro.id); // presencia de actor cuenta para convergencia
+    });
+    if(mercados.size>=2)corr.push({lg,m:mercados.size,f:fases.size});
+  });
+  corr.sort((a,b)=>b.m-a.m);
+  const maxM=corr.length?corr[0].m:1;
+  document.getElementById('an-corredores').innerHTML=
+    (corr.slice(0,10).map(x=>barraHTML(x.lg.nombre+' · '+x.f+' fases',x.m,maxM,'#C14B3A',x.lg.id)).join('')||
+    '<p style="font-size:12px;color:var(--acero-2)">Ningún lugar concentra dos o más mercados u organizaciones bajo los filtros vigentes.</p>')+
+    '<p class="f-nota" style="margin-top:8px">Se listan lugares vinculados simultáneamente a dos o más mercados ilícitos u organizaciones. La convergencia es indicador de infraestructura criminal compartida.</p>';
+
+  // Matriz territorial (dato acreditado UCOD p.76, estático)
+  const terr=[['Metropolitana',69],['Arica y Parinacota',6],['Valparaíso',6],['Maule',6],['Antofagasta',5],['Coquimbo',4],['Tarapacá',3],['Atacama',1]];
+  document.getElementById('an-territorial').innerHTML=
+    terr.map(([r,v])=>barraHTML(r,v,69,'#C9A24B',null)).join('')+
+    '<p class="f-nota" style="margin-top:8px">Hecho acreditado (Fiscalía–UCOD 2025, p. 76; serie 2024). Corroboración quinquenal UAF 2020-2024: RM 143 de 199 sentencias (71,9%); Tarapacá 9; Antofagasta 3; Aysén y Magallanes sin sentencias. Contraste analítico: la renta se genera en la Macrozona Norte, pero la persecución patrimonial se concentra en la RM.</p>';
+
+  // Composición por fase y epistemia
+  const porFase={};es.forEach(en=>porFase[en.fase]=(porFase[en.fase]||0)+1);
+  const maxF=Math.max(1,...Object.values(porFase));
+  document.getElementById('an-fases').innerHTML=
+    Object.entries(FASES).filter(([k])=>porFase[k]).map(([k,v])=>barraHTML(v.n,porFase[k],maxF,v.c,null)).join('');
+  const maxE=Math.max(1,acred,indic,hipo);
+  document.getElementById('an-epi').innerHTML=
+    barraHTML('Acreditado',acred,maxE,EPI.acreditado.c,null)+
+    barraHTML('Indiciario',indic,maxE,EPI.indiciario.c,null)+
+    barraHTML('Hipótesis',hipo,maxE,EPI.hipotesis.c,null);
+
+  // Patrones estructurales con evidencia computada
+  const colchaneG=grado['lg-colchane']||0, iquiqueG=grado['lg-iquique']||0;
+  const lavadoG=grado['mk-lavado']||0;
+  const finanTip=es.filter(en=>en.fase==='financiera'&&en.epi!=='acreditado').length;
+  const predEdges=es.filter(en=>en.fase==='predatoria').length;
+  const orgsPred=new Set();es.forEach(en=>{if(en.fase!=='predatoria')return;[en.a,en.b].forEach(id=>{if(idx[id]&&idx[id].tipo==='organizacion')orgsPred.add(id);});});
+  const patrones=[
+    {t:'Convergencia de corredores logísticos',epi:'indiciario',
+     d:'Los pasos no habilitados de la Macrozona Norte operan como infraestructura criminal común y no como rutas especializadas: Colchane concentra simultáneamente cocaína, cannabis prensada, ketamina y tráfico de migrantes, y el 80% de los grandes decomisos de cigarrillos se asocia a presencia de drogas y armamento (BAT). Quien controla el corredor arrienda capacidad logística a múltiples mercados, lo que explica la disputa violenta por nodos como Iquique y Alto Hospicio.',
+     ev:`Grafo vigente: Colchane registra ${colchaneG} conexiones e Iquique·ZOFRI ${iquiqueG}. Corredores multi-mercado detectados: ${corr.length}.`},
+    {t:'Asimetría territorial entre renta y persecución patrimonial',epi:'acreditado',
+     d:'La renta ilícita se genera en el norte —ingreso, acopio, zona franca—, pero 69 de las 100 condenas por lavado de 2024 se dictaron en la Región Metropolitana, contra 3 en Tarapacá y 1 en Atacama. La inferencia razonable es que la persecución patrimonial sigue al sistema financiero formal y no a la cadena de valor del delito, dejando la fase de colocación —la más vulnerable del ciclo— sin cobertura investigativa en el territorio donde ocurre.',
+     ev:'Cifras acreditadas: Fiscalía–UCOD 2025, p. 76. Corroboración quinquenal UAF 2020-2024: la RM concentra 143 de 199 sentencias (71,9%) y el 76,2% del monto de inmuebles decomisados; Aysén y Magallanes no registran sentencia alguna. La inferencia sobre cobertura investigativa admite corroboración adicional con causas en tramitación.'},
+    {t:'Rusticidad aparente de las tipologías condenadas',epi:'indiciario',
+     d:'Patrón recalificado de hipótesis a antecedente indiciario tras la corroboración con el XI Informe de Tipologías de la UAF (2020-2024): el uso de testaferros aparece en el 73,8% de los casos sentenciados y la intervención de gatekeepers profesionales en apenas el 5,8%, confirmando que el universo condenatorio captura predominantemente esquemas rudimentarios. A mayor abundamiento, el comiso total del quinquenio asciende a CLP 9.481 millones (≈US$ 9,6 millones), cifra que contrastada con los flujos anuales estimados por la CPC (US$ 5.700 millones) arroja una tasa de recuperación patrimonial inferior al 0,1% anual. De las dos lecturas posibles —lavado rudimentario o persecución que solo alcanza lo rudimentario—, los antecedentes concordantes inclinan la balanza hacia la segunda: el segmento sofisticado permanece mayormente fuera del alcance condenatorio.',
+     ev:`Grafo vigente: el nodo Lavado de activos articula ${lavadoG} conexiones. UAF 2020-2024: 199 sentencias, 363 condenados, comiso CLP 9.481 MM; SpA como vehículo societario predominante (55,4% de 139 sociedades); efectivo presente en el 86,4% de los casos.`},
+    {t:'La zona gris regulatoria como factor criminógeno autónomo',epi:'indiciario',
+     d:'El patrón se replica en mercados sin conexión aparente: régimen de zona franca (vehículos), artículo 21 del DS N° 3 (medicamentos), reducción de la TMC de 2013 (crédito extorsivo), exclusión sanitaria de productos de aseo no antimicrobianos y plataformas de apuestas extraterritoriales. La organización criminal no crea el mercado: captura una informalidad que el diseño normativo generó previamente. La brecha regulatoria debe tratarse, en consecuencia, como factor criminógeno autónomo.',
+     ev:'Antecedentes concordantes en cinco sectores independientes (CPC 2026). Surgen indicios concordantes; la relación causal exige análisis normativo caso a caso.'},
+    {t:'Transición hacia gobernanza criminal',epi:'indiciario',
+     d:'Los delitos predatorios —extorsión, secuestro, crédito extorsivo— fueron los de mayor crecimiento relativo en 2024, y el grafo muestra un modelo de franquicia con especialización funcional (Los Gallegos en trata, Los Orientales en secuestros, La Empresa en usura). El delito predatorio no compite con el mercado de bienes: lo complementa como renta de control territorial. Se advierte, al menos indiciariamente, el tránsito desde una criminalidad de tráfico hacia una de gobernanza paralela, cualitativamente más difícil de desarticular.',
+     ev:`Grafo vigente: ${predEdges} conexiones predatorias que involucran a ${orgsPred.size} organizaciones distintas.`}
+  ];
+  document.getElementById('an-patrones').innerHTML=
+    '<div class="an-cab" style="margin-top:8px"><h2 style="font-size:18px">Patrones estructurales</h2></div>'+
+    patrones.map((p,i)=>`<div class="patron">
+      <div class="p-num">Patrón ${['I','II','III','IV','V'][i]}<span class="mini-sello" style="color:${EPI[p.epi].c};border-color:${EPI[p.epi].c}">${EPI[p.epi].n}</span></div>
+      <h4>${p.t}</h4><p>${p.d}</p>
+      <div class="evidencia">${p.ev}</div>
+    </div>`).join('');
+}
+
+/* ================= VISTAS Y BÚSQUEDA ================= */
+function cambiarVista(v){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('activa',b.dataset.vista===v));
+  document.querySelectorAll('.vista').forEach(s=>s.classList.remove('activa'));
+  document.getElementById('v-'+v).classList.add('activa');
+  if(v==='mapa'&&mapa)setTimeout(()=>mapa.invalidateSize(),60);
+  if(v==='grafo')renderGrafo();
+  if(v==='analisis')renderAnalisis();
+}
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>cambiarVista(b.dataset.vista)));
+document.getElementById('q').addEventListener('input',ev=>{filtros.q=ev.target.value.trim();renderTodo();});
+document.getElementById('btn-filtros-mov').addEventListener('click',()=>document.getElementById('filtros').classList.toggle('abierto'));
+
+function renderTodo(){
+  const nv=nodosVisibles(),ev=enlacesVisibles();
+  document.getElementById('c-nodos').textContent=nv.length;
+  document.getElementById('c-enlaces').textContent=ev.length;
+  renderMapa();
+  if(document.getElementById('v-grafo').classList.contains('activa'))renderGrafo();
+  if(document.getElementById('v-analisis').classList.contains('activa'))renderAnalisis();
+  renderTabla();refrescarSelects();
+}
+
+/* ================= INICIO ================= */
+(async function(){
+  construirFiltros();construirFormularios();iniciarMapa();
+  await cargar();
+  renderTodo();
+})();
+window.abrirFichaNodo=abrirFichaNodo;window.eliminarNodo=eliminarNodo;window.centrarEn=centrarEn;
+</script>
+</body>
+</html>
